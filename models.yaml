@@ -1,0 +1,27 @@
+# Model catalogue: which LLMs exist and which agent uses which.
+# API keys are NOT here. They live in .env and are referenced by name (api_key_env).
+
+models:
+  # The key ("sarvam-105b") is our alias: the name code and the agents section refer to.
+  sarvam-105b:
+    provider: sarvam              # which adapter to build (see ADAPTERS in registry.py)
+    model: sarvam-105b            # the provider's own model name (check Sarvam docs; names change)
+    base_url: https://api.sarvam.ai/v2
+    api_key_env: SARVAM_API_KEY   # name of the .env variable holding the key
+    params:                       # sent with every request; per-call arguments override these
+      temperature: 0.7
+      max_tokens: 8192            # Sarvam counts reasoning tokens in this limit, so keep it generous
+    pricing:                      # used for cost tracking (Step 3). null = unknown, cost shows as 0
+      currency: INR
+      per_1m_tokens:
+        input: null
+        cache_read: null
+        cache_write: null
+        output: null
+
+# Which model each agent uses. "default" is used for any agent not listed.
+agents:
+  default: sarvam-105b
+  # research: sarvam-105b
+  # strategy: sarvam-105b
+  # content:  sarvam-105b

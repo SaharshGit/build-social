@@ -1,0 +1,17 @@
+[project]
+name = "buildsocial"
+version = "0.1.0"
+description = "BuildSocial: a model-agnostic multi-agent harness for social media content"
+readme = "README.md"
+requires-python = ">=3.12"
+# Dependencies are added one at a time, as each build step needs them.
+dependencies = [
+    "httpx>=0.28.1",
+    "pydantic>=2.14.3",
+    "python-dotenv>=1.2.4",
+    "pyyaml>=6.0.3",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

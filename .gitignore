@@ -1,0 +1,26 @@
+# Secrets & local env
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# Agent run traces (may contain prompts/outputs)
+traces/
+
+# Node / React
+node_modules/
+dist/
+npm-debug.log*
+
+# OS & Editors
+.vscode/
+.idea/
+.DS_Store

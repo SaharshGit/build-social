@@ -1,0 +1,24 @@
+# Workspace Instructions: BuildSocial
+
+## 1. Context
+- Read `docs/ARCHITECTURE_AND_ROADMAP.md` before proposing changes or creating modules.
+- BuildSocial is meant to be a real product: a multi-agent suite that researches, plans and writes social media content with human approval.
+- **Current phase: agent + harness only**, run from the CLI. No web API, database, frontend or Docker yet.
+
+## 2. Architectural boundaries
+- `buildsocial/harness/` is generic and must not contain social-media logic. `buildsocial/agents/` and `buildsocial/tools/` hold the domain code.
+- Agents and the harness never import a provider SDK; they use `buildsocial/harness/llm/types.py` and the `LLMClient` interface. Provider-specific code lives only in adapters.
+- Model names, endpoints, prices and per-agent model choice live in `models.yaml`; API keys live in `.env`. Never hardcode either.
+- Agents exchange typed Pydantic models through the pipeline; they never talk to each other directly.
+- Use deterministic Python for exact work and LLMs for reasoning and generation.
+
+## 3. Collaboration style
+- **Plan before building.** Don't write code until the user approves the step.
+- **One step at a time.** Before writing each file, explain why it exists, how it fits in, and the tradeoffs. Verify each step runs before moving on.
+- **Minimal dependencies.** Add a dependency only when a step needs it, and say why.
+- **Cost-conscious.** Track tokens and cost per run from early on.
+
+## 4. Current status
+- Done: Step 0 (repo structure cleaned), Step 1 (LLM layer + real Sarvam call working).
+- Next: Step 2 (Content agent: BrandProfile → structured PostDraft, via CLI).
+- Open: decide `reasoning_effort` per agent (sarvam-105b spends ~99% of output tokens reasoning by default); fill Sarvam prices in models.yaml.
