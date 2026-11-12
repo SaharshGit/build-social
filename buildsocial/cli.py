@@ -21,7 +21,7 @@ from buildsocial.agents.content import ContentAgent, ContentInput
 from buildsocial.harness.agent import AgentError, AgentResult
 from buildsocial.harness.llm.base import LLMError
 from buildsocial.harness.llm.registry import Pricing, get_client, resolve_model
-from buildsocial.schemas import BrandProfile, Goal, Platform, PostBrief, PostDraft
+from buildsocial.schemas import BrandProfile, Format, Goal, Platform, PostBrief, PostDraft
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -32,6 +32,7 @@ def main(argv: list[str] | None = None) -> int:
     content.add_argument("--brand", required=True, type=Path, help="brand profile YAML file")
     content.add_argument("--topic", required=True, help="what the post is about")
     content.add_argument("--platform", required=True, choices=get_args(Platform))
+    content.add_argument("--format", default="text", choices=get_args(Format))
     content.add_argument("--goal", default="engagement", choices=get_args(Goal))
     content.add_argument("--notes", help="extra instructions for this post")
     content.add_argument("--json", action="store_true", help="print the draft as raw JSON")
@@ -47,7 +48,9 @@ def main(argv: list[str] | None = None) -> int:
 
 async def run_content(args: argparse.Namespace) -> int:
     brand = load_brand(args.brand)
-    brief = PostBrief(topic=args.topic, platform=args.platform, goal=args.goal, notes=args.notes)
+    brief = PostBrief(
+        topic=args.topic, platform=args.platform, format=args.format, goal=args.goal, notes=args.notes
+    )
     agent = ContentAgent()
 
     _, model_cfg = resolve_model(agent.name)

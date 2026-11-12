@@ -7,9 +7,11 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from buildsocial.harness.agent import Agent
+from buildsocial.harness.skills import render_skills
 from buildsocial.schemas import BrandProfile, PostBrief, PostDraft
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
+SKILLS_DIR = Path(__file__).parent.parent / "skills"
 
 
 @dataclass(frozen=True)
@@ -36,6 +38,13 @@ class ContentAgent(Agent[ContentInput, PostDraft]):
     output_type = PostDraft
     system_prompt = (PROMPTS_DIR / "content.md").read_text()
 
+    def build_system_prompt(self, input: ContentInput) -> str:
+        # Base prompt first (identical on every call, so the provider can cache it),
+        # then only the skills this brief needs.
+        brief = input.brief
+        skills = render_skills(SKILLS_DIR, [f"platforms/{brief.platform}", f"formats/{brief.format}"])
+        return f"{self.system_prompt.strip()}\n\n{skills}"
+
     def build_user_message(self, input: ContentInput) -> str:
         brand, brief = input.brand, input.brief
         rules = PLATFORM_RULES[brief.platform]
@@ -54,6 +63,7 @@ class ContentAgent(Agent[ContentInput, PostDraft]):
             "",
             "# Brief",
             f"Platform: {brief.platform}",
+            f"Format: {brief.format}",
             f"Topic: {brief.topic}",
             f"Goal: {brief.goal}",
             f"Notes: {brief.notes}" if brief.notes else None,

@@ -55,6 +55,11 @@ class Agent(ABC, Generic[InputT, OutputT]):
     system_prompt: str
     max_retries: int = 2  # extra attempts after the first one
 
+    def build_system_prompt(self, input: InputT) -> str:
+        """The system prompt for this input. Override to add input-dependent
+        guidance (e.g. skills for the requested platform) after the base prompt."""
+        return self.system_prompt
+
     @abstractmethod
     def build_user_message(self, input: InputT) -> str:
         """Turn the typed input into the user message the LLM sees."""
@@ -70,7 +75,10 @@ class Agent(ABC, Generic[InputT, OutputT]):
     async def run(self, input: InputT, llm: LLMClient) -> AgentResult[OutputT]:
         # The LLM client is passed in (dependency injection): the CLI passes a real
         # Sarvam client, tests pass a fake one. The agent never builds its own.
-        messages = [Message.system(self.system_prompt), Message.user(self.build_user_message(input))]
+        messages = [
+            Message.system(self.build_system_prompt(input)),
+            Message.user(self.build_user_message(input)),
+        ]
         usage = Usage()
         errors_by_attempt: list[list[str]] = []
 

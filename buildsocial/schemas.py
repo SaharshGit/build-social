@@ -11,6 +11,9 @@ from pydantic import BaseModel, Field
 
 Platform = Literal["instagram", "linkedin"]
 Goal = Literal["engagement", "awareness", "sales", "community"]
+# Content formats. Each needs a skills file (skills/formats/<name>.md). Only text for now;
+# carousel, graphic, etc. are added here as they get built.
+Format = Literal["text"]
 
 
 class BrandProfile(BaseModel):
@@ -32,6 +35,7 @@ class PostBrief(BaseModel):
 
     topic: str
     platform: Platform
+    format: Format = "text"
     goal: Goal = "engagement"
     notes: str | None = None
 
