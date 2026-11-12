@@ -11,13 +11,15 @@ models:
     params:                       # sent with every request; per-call arguments override these
       temperature: 0.7
       max_tokens: 8192            # Sarvam counts reasoning tokens in this limit, so keep it generous
-    pricing:                      # used for cost tracking (Step 3). null = unknown, cost shows as 0
+      reasoning_effort: none      # off by default: ~10x cheaper and faster for writing; "low" can exhaust
+                                  # max_tokens on reasoning alone (Step 2e). Enable per agent if needed.
+    pricing:                      # from sarvam.ai/api-pricing (checked 2026-11-12). null = unknown, counts as 0
       currency: INR
       per_1m_tokens:
-        input: null
-        cache_read: null
-        cache_write: null
-        output: null
+        input: 15
+        cache_read: 5
+        cache_write: 15           # not listed separately; assumed billed as normal input
+        output: 60                # includes reasoning tokens
 
 # Which model each agent uses. "default" is used for any agent not listed.
 agents:

@@ -87,7 +87,8 @@ Later agents: Creative, Publishing, Analytics.
 
 - [x] Step 0: Clean repo structure
 - [x] Step 1: LLM layer (`types`, `base`, `sarvam`, `registry` + `models.yaml`) + smoke test (`uv run python -m buildsocial.harness.llm`)
-- [ ] Step 2: Content agent with no tools: BrandProfile → structured PostDraft, via CLI
+- [x] Step 2: Content agent with no tools: BrandProfile → structured PostDraft, via CLI (`uv run buildsocial content ...`). Reasoning off by default (~₹0.035 and ~3s per post, vs ~₹0.3–0.5 and 35–60s with reasoning `low`)
+- [ ] Step 2f: Skills files for platforms; add `format` to the brief (only `text` implemented)
 - [ ] Step 3: Tracing: tokens, cost, step log per run
 - [ ] Step 4: Tools + agent loop: Research agent with web search
 - [ ] Step 5: Pipeline: Research → Strategy → Content
@@ -95,6 +96,32 @@ Later agents: Creative, Publishing, Analytics.
 - [ ] Step 7: Evals: example brands + output quality checks
 - [ ] Step 8: Decide: keep own harness vs adopt LangGraph; then wrap in FastAPI
 
-## 7. Later (not now)
+## 7. Content formats and visuals (planned, not built)
+
+**Long-term goal:** produce any kind of social media content: text posts, graphics, carousels, video, animation, audio.
+
+**Two stages for every format:**
+- *What to say*: agents produce a structured **creative spec** (today's `PostDraft` is the spec for a text post).
+- *How it looks or sounds*: a production step turns the spec into files (assets).
+
+**Scope now:** text posts, then graphics for text content (quote cards, offer cards, carousels).
+**Out of scope for now:** image generation, voice, video. Sarvam has no image or video generation; it does offer TTS (Bulbul), STT (Saaras), translation, dubbing and image-input models.
+
+**Graphics approach (code-based design):**
+- A Design agent writes HTML/CSS for each graphic, constrained by a **brand kit** in the brand profile (colours, fonts, logo, style notes), with example layouts supplied as skills files.
+- A headless browser (Playwright) renders it to PNG, with scripts and network access disabled.
+- Same validate-and-retry loop as text: code checks (overflow, size, contrast, brand colours/fonts), then a vision-model check; problems go back to the agent.
+- Fallback: a fixed template if the design still fails after retries.
+- Optional later: a Canva renderer for users with their own Canva brand templates (Connect API; autofill may require Canva Enterprise; each user connects their own account).
+
+**Code-based creative tools in general:** the same pattern (agent writes code → a renderer produces media → checks → retry) covers other tools later, e.g. Manim for animated explainer videos, SVG, Remotion for motion graphics. They plug in as tools, either our own Python tools or MCP servers. Tools that execute LLM-written programs (Manim runs Python) must run in a sandbox (an isolated container with no network or secrets).
+
+**Skills files (Step 2f):** per-platform and per-format know-how in Markdown (`buildsocial/skills/platforms/instagram.md`, `skills/formats/carousel.md`), loaded by code based on the brief so each call carries only the guidance it needs.
+
+**Other capabilities use the same adapter pattern as `llm/`,** each added only when an agent needs it: `search/` (Step 4), later `images/`, `speech/`, `video/`. The tools layer (Step 4) should accept both Python tools and tools from MCP servers.
+
+**Known quality gaps (from Step 2 runs):** the model invents plausible facts (addresses, durations) and can break brand rules subtly (health claims). Code rules can't catch these; they need the human approval step (Step 6) and an LLM judge in evals (Step 7).
+
+## 8. Later (not now)
 
 FastAPI service, Postgres (drafts, runs, brands), background jobs, React UI, OAuth social connections and publishing, multi-tenancy, Docker, deployment.

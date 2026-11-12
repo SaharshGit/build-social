@@ -1,0 +1,27 @@
+# Fictional brand for development and testing. Real brands will come from users via the app.
+name: Brew House
+description: >
+  A specialty coffee café in Indiranagar, Bengaluru. Single-origin Indian beans
+  from Chikmagalur and Coorg, pour-overs, cold brews, and filter coffee with a twist.
+  Cosy space popular for remote work and weekend catch-ups.
+audience: >
+  Bengaluru professionals and students aged 22-35 who care about good coffee,
+  work from cafés, and follow local food culture on Instagram and LinkedIn.
+voice: Warm, playful and a little nerdy about coffee. Friendly, never pushy or salesy.
+language: Hinglish
+content_pillars:
+  - Coffee origins and brewing tips
+  - Behind the counter (baristas, roasting, daily life)
+  - Seasonal specials and offers
+  - Bengaluru life and community
+dos:
+  - Celebrate Indian coffee farmers and origins
+  - Use light humour and local Bengaluru references
+  - Keep emojis to a few per post
+donts:
+  - Never mention or compare with competitor cafés or chains
+  - No discount-shouting or ALL CAPS
+  - Don't make health claims about coffee
+example_posts:
+  - "Monday ko thoda gentle banate hain ☕ Our Coorg pour-over is fruity, bright, and basically a hug in a cup. Come say hi — wifi strong, chairs comfy."
+  - "Filter coffee, but make it cold. 🧊 Our new Cold Filter Kaapi is here for the Bengaluru afternoons that refuse to cool down."

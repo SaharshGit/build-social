@@ -21,6 +21,7 @@ from pydantic import BaseModel, model_validator
 
 from buildsocial.harness.llm.base import LLMClient
 from buildsocial.harness.llm.sarvam import SarvamClient
+from buildsocial.harness.llm.types import Usage
 
 # ----------------------------------------------------------------------
 # Config schema: what a valid models.yaml looks like
@@ -39,6 +40,17 @@ class TokenPrices(BaseModel):
 class Pricing(BaseModel):
     currency: str = "USD"
     per_1m_tokens: TokenPrices = TokenPrices()
+
+    def cost(self, usage: Usage) -> float:
+        """Cost of the given usage in `currency`. Unknown prices count as 0."""
+        p = self.per_1m_tokens
+        buckets = [
+            (usage.input_tokens, p.input),
+            (usage.cache_read_tokens, p.cache_read),
+            (usage.cache_write_tokens, p.cache_write),
+            (usage.output_tokens, p.output),  # reasoning is already inside output_tokens
+        ]
+        return sum(tokens * (price or 0) for tokens, price in buckets) / 1_000_000
 
 
 class ModelConfig(BaseModel):
@@ -101,14 +113,18 @@ def load_config() -> ModelsFile:
 
 
 def resolve_model(name: str = "default") -> tuple[str, ModelConfig]:
-    """Agent name or model alias -> (alias, config)."""
+    """Agent name or model alias -> (alias, config).
+
+    Lookup order: agent listed under `agents:` -> model alias under `models:`
+    -> otherwise an agent that isn't listed, so it gets the default model.
+    """
     cfg = load_config()
-    alias = cfg.agents.get(name, name)  # agent name? map to its alias. Otherwise treat as alias.
-    if alias not in cfg.models:
-        raise KeyError(
-            f"'{name}' is neither an agent nor a model alias. "
-            f"Agents: {sorted(cfg.agents)}. Models: {sorted(cfg.models)}"
-        )
+    if name in cfg.agents:
+        alias = cfg.agents[name]
+    elif name in cfg.models:
+        alias = name
+    else:
+        alias = cfg.agents["default"]
     return alias, cfg.models[alias]
 
 

@@ -20,5 +20,6 @@
 
 ## 4. Current status
 - Done: Step 0 (repo structure cleaned), Step 1 (LLM layer + real Sarvam call working).
-- Next: Step 2 (Content agent: BrandProfile → structured PostDraft, via CLI).
-- Open: decide `reasoning_effort` per agent (sarvam-105b spends ~99% of output tokens reasoning by default); fill Sarvam prices in models.yaml.
+- Done: Step 2 (Content agent via CLI, platform rules in code, cost reporting, reasoning off by default).
+- Next: Step 2f (skills files for platforms; `format` in the brief).
+- Open: the model invents facts and can break brand rules subtly; needs the approval step and an LLM judge in evals.
