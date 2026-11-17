@@ -22,6 +22,7 @@
 - Done: Step 0 (repo structure cleaned), Step 1 (LLM layer + real Sarvam call working).
 - Done: Step 2 (Content agent via CLI, platform rules in code, cost reporting, reasoning off by default).
 - Done: Step 2f (skills files per platform and format, loaded by code from the brief).
-- Next: Step 3 (tracing: tokens, cost and a step log per run).
+- Done: Step 3 (tracing to `traces/`, viewer: `uv run buildsocial trace`).
+- Next: prototype 1 (Research → Strategy → Content → approval, end to end).
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: the model invents facts and can break brand rules subtly; needs the approval step and an LLM judge in evals.

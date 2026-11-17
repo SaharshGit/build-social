@@ -15,6 +15,7 @@ Tool use comes later (Step 4).
 """
 
 import re
+import time
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 
@@ -22,6 +23,7 @@ from pydantic import BaseModel, ValidationError
 
 from buildsocial.harness.llm.base import LLMClient
 from buildsocial.harness.llm.types import LLMResponse, Message, Usage
+from buildsocial.harness.trace import Tracer
 
 InputT = TypeVar("InputT", bound=BaseModel)
 OutputT = TypeVar("OutputT", bound=BaseModel)
@@ -72,31 +74,75 @@ class Agent(ABC, Generic[InputT, OutputT]):
         """
         return []
 
-    async def run(self, input: InputT, llm: LLMClient) -> AgentResult[OutputT]:
+    async def run(
+        self, input: InputT, llm: LLMClient, tracer: Tracer | None = None
+    ) -> AgentResult[OutputT]:
         # The LLM client is passed in (dependency injection): the CLI passes a real
         # Sarvam client, tests pass a fake one. The agent never builds its own.
+        # Same for the tracer; without one, nothing is recorded.
+        tracer = tracer or Tracer()
+        started = time.perf_counter()
         messages = [
             Message.system(self.build_system_prompt(input)),
             Message.user(self.build_user_message(input)),
         ]
         usage = Usage()
         errors_by_attempt: list[list[str]] = []
+        tracer.event("run_start", agent=self.name, input=input)
 
-        for attempt in range(1, self.max_retries + 2):
-            resp = await llm.complete(messages, output_schema=self.output_type)
-            usage = usage + resp.usage
-
-            output, errors = self._parse(resp, input)
-            if not errors:
-                assert output is not None
-                return AgentResult[self.output_type](
-                    output=output, usage=usage, attempts=attempt, model=resp.model
+        try:
+            for attempt in range(1, self.max_retries + 2):
+                call_started = time.perf_counter()
+                resp = await llm.complete(messages, output_schema=self.output_type)
+                usage = usage + resp.usage
+                tracer.event(
+                    "llm_call",
+                    attempt=attempt,
+                    messages=messages,
+                    response=resp.model_dump(mode="json", exclude={"usage"}),
+                    usage=resp.usage,
+                    duration_s=round(time.perf_counter() - call_started, 3),
                 )
 
-            errors_by_attempt.append(errors)
-            # Show the model its own answer and what's wrong with it, then ask again.
-            messages += [resp.to_message(), Message.user(_fix_request(errors))]
+                output, errors = self._parse(resp, input)
+                tracer.event("validation", attempt=attempt, errors=errors)
+                if not errors:
+                    assert output is not None
+                    tracer.event(
+                        "run_end",
+                        status="ok",
+                        output=output,
+                        attempts=attempt,
+                        usage=usage,
+                        duration_s=round(time.perf_counter() - started, 3),
+                    )
+                    return AgentResult[self.output_type](
+                        output=output, usage=usage, attempts=attempt, model=resp.model
+                    )
 
+                errors_by_attempt.append(errors)
+                # Show the model its own answer and what's wrong with it, then ask again.
+                messages += [resp.to_message(), Message.user(_fix_request(errors))]
+        except Exception as e:
+            # Something outside the agent's control (network, API error): record it, then pass it on.
+            tracer.event(
+                "run_end",
+                status="error",
+                error=repr(e),
+                attempts=len(errors_by_attempt) + 1,
+                usage=usage,
+                duration_s=round(time.perf_counter() - started, 3),
+            )
+            raise
+
+        tracer.event(
+            "run_end",
+            status="failed",
+            error="output still invalid after all attempts",
+            attempts=len(errors_by_attempt),
+            usage=usage,
+            duration_s=round(time.perf_counter() - started, 3),
+        )
         raise AgentError(self.name, errors_by_attempt, usage)
 
     def _parse(self, resp: LLMResponse, input: InputT) -> tuple[OutputT | None, list[str]]:

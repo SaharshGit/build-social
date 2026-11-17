@@ -89,7 +89,7 @@ Later agents: Creative, Publishing, Analytics.
 - [x] Step 1: LLM layer (`types`, `base`, `sarvam`, `registry` + `models.yaml`) + smoke test (`uv run python -m buildsocial.harness.llm`)
 - [x] Step 2: Content agent with no tools: BrandProfile → structured PostDraft, via CLI (`uv run buildsocial content ...`). Reasoning off by default (~₹0.035 and ~3s per post, vs ~₹0.3–0.5 and 35–60s with reasoning `low`)
 - [x] Step 2f: Skills files (`buildsocial/skills/platforms/*.md`, `skills/formats/text.md`) loaded per brief by `harness/skills.py`; `format` added to the brief (only `text` implemented)
-- [ ] Step 3: Tracing: tokens, cost, step log per run
+- [x] Step 3: Tracing: every run writes a JSON Lines trace to `traces/` (prompts, replies, checks, tokens, cost); view with `uv run buildsocial trace`
 - [ ] Step 4: Tools + agent loop: Research agent with web search
 - [ ] Step 5: Pipeline: Research → Strategy → Content
 - [ ] Step 6: Human approval in CLI (approve / edit / reject with feedback)
