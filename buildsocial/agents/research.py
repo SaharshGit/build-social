@@ -27,7 +27,7 @@ from buildsocial.harness.agent import Agent, AgentError, AgentResult
 from buildsocial.harness.llm.base import LLMClient, LLMError
 from buildsocial.harness.llm.types import Citation, Message, Usage
 from buildsocial.harness.trace import Tracer
-from buildsocial.schemas import Platform, ResearchNotes, ResearchReport, Source
+from buildsocial.schemas import FindingScope, Platform, ResearchNotes, ResearchReport, Source
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 MAX_FINDINGS = 8
@@ -113,6 +113,7 @@ class _SourcedResearch:
     name = MODEL_ALIAS  # which model to use (models.yaml)
     label: str  # how this layer appears in traces and step summaries
     search_prompt: str
+    forced_scope: FindingScope | None = None  # if set, code sets every finding's scope (not the model)
 
     def __init__(self) -> None:
         self.structurer = ResearchStructurer()
@@ -171,6 +172,8 @@ class _SourcedResearch:
         report = ResearchReport(
             **notes.output.model_dump(), search_queries=search.search_queries, sources=sources
         )
+        if self.forced_scope:
+            report.findings = [f.model_copy(update={"scope": self.forced_scope}) for f in report.findings]
         self._end(tracer, started, "ok", usage, output=report, attempts=notes.attempts)
         return AgentResult[ResearchReport](output=report, usage=usage, attempts=notes.attempts, model=search.model)
 
@@ -187,6 +190,7 @@ class _SourcedResearch:
 
 class MarketResearchAgent(_SourcedResearch):
     label = "market_research"
+    forced_scope = "market"  # everything market research finds is about the market
     search_prompt = (PROMPTS_DIR / "research_market.md").read_text()
 
     def build_search_message(self, input: MarketInput) -> str:

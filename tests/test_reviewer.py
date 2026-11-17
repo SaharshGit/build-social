@@ -21,7 +21,7 @@ RESEARCH = ResearchReport.model_validate_json(
 )
 BRIEF = PostBrief(topic="onion hair oil for winter hair care", platform="instagram")
 PLAN = ContentPlan(
-    brief_concerns=[], rationale="r", angle="Winter hair tip", key_message="Oil before you wash.",
+    brief_concerns=[], rationale="r", rules_check="No result claims.", angle="Winter hair tip", key_message="Oil before you wash.",
     finding_ids=[3], cta_direction="Ask for their winter tip",
 )
 
@@ -54,7 +54,7 @@ def review_input(draft=DRAFT) -> ReviewInput:
 def test_reviewer_sees_rules_approved_facts_and_the_draft():
     msg = ReviewerAgent().build_user_message(review_input())
     assert "- No medical or therapeutic claims" in msg  # brand don'ts
-    assert f"- {RESEARCH.findings[2].fact}" in msg  # only the approved facts
+    assert f"- {RESEARCH.findings[2].tagged()}" in msg  # only the approved facts, with their scope
     assert RESEARCH.findings[4].fact not in msg
     assert f"BODY: {DRAFT.body}" in msg
 
@@ -169,3 +169,56 @@ def test_prompts_put_brand_rules_above_plan_and_fact_wording():
     assert "The plan can be wrong too" in reviewer.ReviewerAgent.system_prompt
     msg = ContentAgent().build_user_message(ContentInput(brand=BRAND, brief=BRIEF, plan=PLAN, research=RESEARCH))
     assert "phrase them within the brand rules" in msg
+
+
+# --- product facts and finding scope ------------------------------------------------
+
+
+def test_every_agent_sees_the_products_section():
+    from buildsocial.agents.strategy import StrategyAgent, StrategyInput
+
+    products = BRAND.products_text()
+    assert "Key ingredients: onion oil, Redensyl" in products and "Approved claim: Toxin-free" in products
+    messages = [
+        StrategyAgent().build_user_message(StrategyInput(brand=BRAND, brief=BRIEF, research=RESEARCH)),
+        ContentAgent().build_user_message(ContentInput(brand=BRAND, brief=BRIEF, plan=PLAN, research=RESEARCH)),
+        ReviewerAgent().build_user_message(review_input()),
+    ]
+    for msg in messages:
+        assert "# Products (the ONLY allowed facts about the brand's own products)" in msg
+        assert products in msg
+
+
+def test_brand_without_products_is_told_to_make_no_product_claims():
+    assert "make no claims about the brand's products" in BRAND.model_copy(update={"products": []}).products_text()
+
+
+def test_prompts_forbid_category_facts_as_product_claims():
+    from buildsocial.agents import content, reviewer, strategy
+
+    for prompt in (strategy.StrategyAgent.system_prompt, content.ContentAgent.system_prompt):
+        assert "Product facts come only from the Products section" in prompt
+    assert "A `[category]` fact stated as a fact about the brand's product is an invented_fact" in \
+        reviewer.ReviewerAgent.system_prompt
+
+
+async def test_market_findings_are_always_scoped_market():
+    from buildsocial.agents.research import MarketInput, MarketResearchAgent
+    from buildsocial.harness.llm.types import Citation
+
+    class SearchThenStructure(LLMClient):
+        def __init__(self):
+            self.replies = [
+                "Winter starts in December.",
+                json.dumps({"summary": "s", "trends": [], "findings": [
+                    {"fact": "Winter starts in December.", "scope": "brand", "source_ids": [1]}]}),
+            ]
+
+        async def complete(self, messages, tools=None, output_schema=None, temperature=None, max_tokens=None,
+                           builtin_tools=None):
+            cites = [Citation(url="https://x", title="x.com", cited_text="Winter starts in December.")]
+            return LLMResponse(text=self.replies.pop(0), citations=cites if builtin_tools else [],
+                               stop_reason="end", usage=Usage(), model="fake")
+
+    result = await MarketResearchAgent().run(MarketInput(industry="skincare", market="India"), SearchThenStructure())
+    assert result.output.findings[0].scope == "market"  # set by code, whatever the model said

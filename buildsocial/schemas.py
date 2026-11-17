@@ -16,6 +16,21 @@ Goal = Literal["engagement", "awareness", "sales", "community"]
 Format = Literal["text"]
 
 
+class Product(BaseModel):
+    """What the brand itself says about one of its products.
+
+    The ONLY source for claims about the brand's own products. Research about a product
+    category ("onion oils usually contain coconut oil") is never a fact about this product.
+    """
+
+    name: str
+    description: str | None = None
+    key_ingredients: list[str] = Field(default_factory=list)
+    approved_claims: list[str] = Field(
+        default_factory=list, description="Claims the brand allows about this product, word for word"
+    )
+
+
 class BrandProfile(BaseModel):
     """A brand's identity. Written once per brand, reused for every post."""
 
@@ -32,6 +47,20 @@ class BrandProfile(BaseModel):
     dos: list[str] = Field(default_factory=list)
     donts: list[str] = Field(default_factory=list)
     example_posts: list[str] = Field(default_factory=list, description="Past posts showing the brand's style")
+    products: list[Product] = Field(default_factory=list)
+
+    def products_text(self) -> str:
+        """The products section shown to agents: the only allowed facts about the brand's own products."""
+        if not self.products:
+            return "(none listed: make no claims about the brand's products beyond the description and brief)"
+        blocks = []
+        for p in self.products:
+            lines = [f"- {p.name}" + (f": {p.description.strip()}" if p.description else "")]
+            if p.key_ingredients:
+                lines.append(f"  Key ingredients: {', '.join(p.key_ingredients)}")
+            lines += [f"  Approved claim: {c}" for c in p.approved_claims]
+            blocks.append("\n".join(lines))
+        return "\n".join(blocks)
 
 
 class PostBrief(BaseModel):
@@ -76,9 +105,22 @@ class Source(BaseModel):
     passage: str | None = None  # the text this source supported in the search answer
 
 
+FindingScope = Literal["category", "market", "brand"]
+
+
 class Finding(BaseModel):
     fact: str = Field(description="One specific, verifiable fact, phrased neutrally")
+    # What the fact is ABOUT, so agents don't turn a general fact into a claim about the
+    # brand's own product ("onion oils often contain X" is not "our oil contains X").
+    scope: FindingScope = Field(
+        default="category",
+        description="'brand' if about a specific company or its products; 'category' if about the topic or "
+        "product type in general; 'market' if about the market, season, events or trends",
+    )
     source_ids: list[int] = Field(description="Numbers of the sources that support this fact, e.g. [1, 3]")
+
+    def tagged(self) -> str:
+        return f"[{self.scope}] {self.fact}"
 
 
 class ResearchNotes(BaseModel):
@@ -121,6 +163,10 @@ class ContentPlan(BaseModel):
         "empty if none"
     )
     rationale: str = Field(description="Briefly, which angle and facts suit the brand, goal and platform, and why")
+    rules_check: str = Field(
+        description="Before writing the key message: which brand don'ts could this post break (e.g. promised "
+        "results, product claims beyond the Products section), and how the plan avoids each one"
+    )
     angle: str = Field(description="The one angle this post takes, in a sentence")
     key_message: str = Field(description="The single message the reader should remember, in one sentence")
     finding_ids: list[int] = Field(

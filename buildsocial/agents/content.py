@@ -83,6 +83,9 @@ class ContentAgent(Agent[ContentInput, PostDraft]):
             _bullets("Content pillars", brand.content_pillars),
             _bullets("Do", brand.dos),
             _bullets("Don't", brand.donts),
+            "",
+            "# Products (the ONLY allowed facts about the brand's own products)",
+            brand.products_text(),
             _bullets("Example posts (match the style, don't copy)", brand.example_posts),
             "",
             "# Brief",
@@ -187,7 +190,7 @@ def _plan_section(input: ContentInput) -> str | None:
         "Facts you may use (don't exaggerate or add to them, and phrase them within the brand rules; these, plus the "
         "brand profile and brief, are the ONLY facts allowed):",
     ]
-    lines += [f"- {f.fact}" for f in facts] or ["- (none: use only the brand profile and brief)"]
+    lines += [f"- {f.tagged()}" for f in facts] or ["- (none: use only the brand profile and brief)"]
     return "\n".join(lines)
 
 

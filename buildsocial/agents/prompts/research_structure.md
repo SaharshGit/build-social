@@ -5,6 +5,7 @@ You will receive the research focus, the research notes, and a numbered list of 
 ## Rules
 
 - **Findings:** each finding is one specific, verifiable fact, phrased neutrally. Use only facts that are supported by a numbered source passage, and list the numbers of those sources. A fact with no supporting source must be left out, even if it seems true.
+- **Scope:** tag each finding with what it is about. `brand` = a specific company or one of its products. `category` = the topic or product type in general (e.g. "onion hair oils often contain coconut oil"). `market` = the market, season, events or trends. When unsure between brand and category, use category.
 - Keep at most 8 findings, choosing the most specific and useful ones for the research focus.
 - **Trends:** what is current, seasonal or local and relevant to the focus, based on the research. No source numbers needed, but don't add anything the research doesn't say.
 - **Summary:** 2-3 sentences on what matters most.

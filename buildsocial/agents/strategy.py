@@ -36,7 +36,7 @@ class StrategyAgent(Agent[StrategyInput, ContentPlan]):
         findings = []
         for i, f in enumerate(research.findings, 1):
             sites = ", ".join(s.title or "source" for n in f.source_ids if (s := research.source(n)))
-            findings.append(f"{i}. {f.fact} (sources: {sites or 'unknown'})")
+            findings.append(f"{i}. {f.tagged()} (sources: {sites or 'unknown'})")
 
         sections = [
             f"Today's date: {input.today:%A, %d %B %Y}",
@@ -49,6 +49,9 @@ class StrategyAgent(Agent[StrategyInput, ContentPlan]):
             _bullets("Content pillars", brand.content_pillars),
             _bullets("Do", brand.dos),
             _bullets("Don't", brand.donts),
+            "",
+            "# Products (the ONLY allowed facts about the brand's own products)",
+            brand.products_text(),
             "",
             "# Brief",
             f"Platform: {brief.platform}",

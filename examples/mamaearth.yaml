@@ -35,3 +35,14 @@ donts:
 example_posts:
   - "Monsoon frizz, who? Our Onion Shampoo + Conditioner duo is your rainy-day hair hug. Toxin-free, and full of goodness."
   - "Sunscreen is a daily habit, not a beach-day thing. Swipe for a 3-step morning routine that actually fits your rush hour."
+# Product facts: the ONLY source for claims about Mamaearth's own products.
+# Ingredients from public listings (mamaearth.in, INCIDecoder; checked 2026-11-17),
+# unverified test data. The brand's own "hair fall control" / "regrowth" wording is
+# deliberately left out: our test rules forbid result claims.
+products:
+  - name: Onion Hair Oil
+    description: Hair oil, sold in 150-250 ml bottles.
+    key_ingredients: [onion oil, Redensyl, almond oil, bhringraj oil, castor oil, amla oil]
+    approved_claims:
+      - Made with onion oil and Redensyl
+      - Toxin-free

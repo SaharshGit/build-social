@@ -32,6 +32,7 @@ def plan_json(finding_ids=(3, 8), concerns=("The monsoon has mostly ended by Nov
         "cta_direction": "Visit the Indiranagar cafe this week",
         "brief_concerns": list(concerns),
         "rationale": "Ties the drink to the city's coffee culture.",
+        "rules_check": "No health claims; the message is about flavour.",
     })
 
 
@@ -78,7 +79,7 @@ def test_strategy_message_includes_todays_date():
 
 def test_strategy_message_numbers_findings_with_sources_and_brand_rules():
     msg = StrategyAgent().build_user_message(StrategyInput(brand=BRAND, brief=BRIEF, research=RESEARCH))
-    assert f"1. {RESEARCH.findings[0].fact} (sources: weatherspark.com, accuweather.com)" in msg
+    assert f"1. {RESEARCH.findings[0].tagged()} (sources: weatherspark.com, accuweather.com)" in msg
     assert "- Don't make health claims about coffee" in msg
     assert "angles" not in msg.lower()  # research reports facts only; strategy forms the angle
 
@@ -109,7 +110,7 @@ def test_content_message_includes_plan_and_only_approved_facts():
     plan = ContentPlan.model_validate_json(plan_json(finding_ids=[3]))
     msg = ContentAgent().build_user_message(ContentInput(brand=BRAND, brief=BRIEF, plan=plan, research=RESEARCH))
     assert "# Plan (from the strategist: follow it)" in msg
-    assert f"- {RESEARCH.findings[2].fact}" in msg
+    assert f"- {RESEARCH.findings[2].tagged()}" in msg
     assert RESEARCH.findings[4].fact not in msg  # an unselected (health) finding never reaches the writer
 
 

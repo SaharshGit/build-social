@@ -48,6 +48,9 @@ class ReviewerAgent(Agent[ReviewInput, Review]):
             f"Voice: {brand.voice}",
             f"Language: {brand.language}",
             _bullets("Don'ts", brand.donts),
+            "",
+            "# Products (the ONLY allowed facts about the brand's own products)",
+            brand.products_text(),
             _bullets("Example posts (wording must not be copied)", brand.example_posts),
             "",
             "# Brief",
@@ -66,7 +69,7 @@ class ReviewerAgent(Agent[ReviewInput, Review]):
                 f"Call to action direction: {plan.cta_direction}",
                 "",
                 "# Approved facts (the ONLY researched facts the draft may use)",
-                "\n".join(f"- {f.fact}" for f in facts) or "- (none)",
+                "\n".join(f"- {f.tagged()}" for f in facts) or "- (none)",
             ]
         sections += [
             "",
