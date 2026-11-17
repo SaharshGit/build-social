@@ -131,8 +131,12 @@ def format_trace(records: list[dict[str, Any]], full: bool = False) -> str:
             for m in r.get("messages", []):
                 lines.append(f"\n  [{m['role']}]")
                 lines.append(_indent(_shorten(m.get("content") or "", full)))
+            for q in resp.get("search_queries") or []:
+                lines.append(f"\n  [web search] {q}")
             lines.append("\n  [reply]")
             lines.append(_indent(resp.get("text") or "(no text)"))
+            for c in resp.get("citations") or []:
+                lines.append(f"  [source] {c.get('title')}: \"{(c.get('cited_text') or '')[:80]}\"")
             if resp.get("stop_reason") != "end":
                 lines.append(f"  stop reason: {resp.get('stop_reason')}")
 
@@ -176,11 +180,14 @@ def _jsonable(value: Any) -> Any:
 
 
 def _usage_text(u: dict[str, Any]) -> str:
-    return (
+    text = (
         f"tokens: in {u.get('input_tokens', 0)}, cache read {u.get('cache_read_tokens', 0)}, "
         f"cache write {u.get('cache_write_tokens', 0)}, out {u.get('output_tokens', 0)} "
         f"(reasoning {u.get('reasoning_tokens', 0)})"
     )
+    if u.get("web_searches"):
+        text += f", web searches {u['web_searches']}"
+    return text
 
 
 def _cost_text(r: dict[str, Any]) -> str:

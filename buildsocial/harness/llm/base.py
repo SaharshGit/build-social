@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 
 from pydantic import BaseModel
 
-from buildsocial.harness.llm.types import LLMResponse, Message, ToolSpec
+from buildsocial.harness.llm.types import BuiltinTool, LLMResponse, Message, ToolSpec
 
 
 class LLMError(Exception):
@@ -31,15 +31,18 @@ class LLMClient(ABC):
         output_schema: type[BaseModel] | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        builtin_tools: list[BuiltinTool] | None = None,
     ) -> LLMResponse:
         """Send a conversation to the model and return its reply in our format.
 
         messages:      full conversation history (we always send all of it)
-        tools:         tools the model may call this turn
+        tools:         our own tools the model may call this turn
         output_schema: if given, ask the model for JSON matching this schema
                        (validation and retries happen in the agent loop, not here)
         temperature,
         max_tokens:    None = use the model's defaults from models.yaml
+        builtin_tools: tools the provider runs itself, e.g. ["web_search"].
+                       Adapters raise LLMError if they don't support one.
         """
 
     async def aclose(self) -> None:

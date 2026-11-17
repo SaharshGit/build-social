@@ -25,6 +25,8 @@ build-social/
 │   │   │   ├── types.py          # Message, ToolSpec, ToolCall, LLMResponse, Usage
 │   │   │   ├── base.py           # LLMClient interface
 │   │   │   ├── sarvam.py         # adapter: our types <-> Sarvam API (one adapter per provider)
+│   │   │   ├── gemini.py         # adapter: our types <-> Gemini Interactions API (+ Google Search)
+│   │   │   ├── _http.py          # shared: HTTP POST with retries
 │   │   │   └── registry.py       # reads models.yaml → builds the right client for a model alias
 │   │   ├── agent.py        # Agent definition + run loop
 │   │   ├── tools.py        # Python function → tool the LLM can call
@@ -50,7 +52,7 @@ The `harness/` vs `agents/` split keeps the harness reusable for future agent su
   - outgoing: our `Message` / `ToolSpec` → provider request JSON
   - incoming: provider response → our `LLMResponse` / `Usage`
 - `base.py` defines the `LLMClient` contract every adapter implements: `complete(messages, tools, ...) -> LLMResponse`.
-- **One adapter per provider, written for that provider's real behaviour** (not a "generic" adapter guessing at many). Now: `sarvam.py` only. Later, as needed: `openai_responses.py`, `anthropic.py`, `gemini.py`, etc. Different models from the same provider share one adapter; their differences are settings in `models.yaml`.
+- **One adapter per provider, written for that provider's real behaviour** (not a "generic" adapter guessing at many). Now: `sarvam.py` (writing agents) and `gemini.py` (research, with Google Search). Later, as needed: `openai_responses.py`, `anthropic.py`, etc. Shared HTTP retry logic lives in `_http.py`. Different models from the same provider share one adapter; their differences are settings in `models.yaml`.
 - If two adapters end up sharing a lot of code (e.g. two OpenAI-format providers), extract the shared helpers into a common module *then*, once the overlap is visible, not before.
 - **Usage normalization.** Adapters convert token counts into non-overlapping buckets (`input_tokens`, `cache_read_tokens`, `cache_write_tokens`, `output_tokens`, with `reasoning_tokens` as a subset of output). The provider's original usage is kept in `raw_usage` for auditing.
 - Provider quirks live only inside the adapter. Only Sarvam's are handled for now (e.g. it rejects `tool_choice` without `tools`).

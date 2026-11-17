@@ -23,6 +23,8 @@
 - Done: Step 2 (Content agent via CLI, platform rules in code, cost reporting, reasoning off by default).
 - Done: Step 2f (skills files per platform and format, loaded by code from the brief).
 - Done: Step 3 (tracing to `traces/`, viewer: `uv run buildsocial trace`).
-- Next: prototype 1 (Research → Strategy → Content → approval, end to end).
+- Done: Gemini adapter (`harness/llm/gemini.py`, Interactions API, Google Search built in); research agent uses `gemini-2.5-flash-lite` (free tier).
+- Next: prototype 1: Research agent → Strategy → Content → Reviewer → approval, end to end.
+- Gemini can't combine search with JSON output in one call: research = search call, then a structuring call.
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: the model invents facts and can break brand rules subtly; needs the approval step and an LLM judge in evals.

@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, model_validator
 
 from buildsocial.harness.llm.base import LLMClient
+from buildsocial.harness.llm.gemini import GeminiClient
 from buildsocial.harness.llm.sarvam import SarvamClient
 from buildsocial.harness.llm.types import Usage
 
@@ -40,6 +41,7 @@ class TokenPrices(BaseModel):
 class Pricing(BaseModel):
     currency: str = "USD"
     per_1m_tokens: TokenPrices = TokenPrices()
+    per_1k_web_searches: float | None = None  # built-in search tools bill per query
 
     def cost(self, usage: Usage) -> float:
         """Cost of the given usage in `currency`. Unknown prices count as 0."""
@@ -50,11 +52,13 @@ class Pricing(BaseModel):
             (usage.cache_write_tokens, p.cache_write),
             (usage.output_tokens, p.output),  # reasoning is already inside output_tokens
         ]
-        return sum(tokens * (price or 0) for tokens, price in buckets) / 1_000_000
+        tokens_cost = sum(tokens * (price or 0) for tokens, price in buckets) / 1_000_000
+        search_cost = usage.web_searches * (self.per_1k_web_searches or 0) / 1_000
+        return tokens_cost + search_cost
 
 
 class ModelConfig(BaseModel):
-    provider: Literal["sarvam"]  # extend as adapters are added
+    provider: Literal["sarvam", "gemini"]  # extend as adapters are added
     model: str
     base_url: str | None = None
     api_key_env: str
@@ -81,15 +85,16 @@ class ModelsFile(BaseModel):
 # ----------------------------------------------------------------------
 
 
-def _build_sarvam(cfg: ModelConfig, api_key: str) -> LLMClient:
+def _client_kwargs(cfg: ModelConfig, api_key: str) -> dict[str, Any]:
     kwargs: dict[str, Any] = {"api_key": api_key, "model": cfg.model, "default_params": cfg.params}
     if cfg.base_url:
         kwargs["base_url"] = cfg.base_url
-    return SarvamClient(**kwargs)
+    return kwargs
 
 
 ADAPTERS: dict[str, Callable[[ModelConfig, str], LLMClient]] = {
-    "sarvam": _build_sarvam,
+    "sarvam": lambda cfg, key: SarvamClient(**_client_kwargs(cfg, key)),
+    "gemini": lambda cfg, key: GeminiClient(**_client_kwargs(cfg, key)),
 }
 
 # ----------------------------------------------------------------------
