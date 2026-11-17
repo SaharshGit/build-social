@@ -230,3 +230,29 @@ def _shorten(text: str, full: bool, limit: int = 400) -> str:
 
 def _indent(text: str, prefix: str = "  ") -> str:
     return "\n".join(prefix + line for line in text.splitlines())
+
+
+# ----------------------------------------------------------------------
+# Spend: total cost across trace files
+# ----------------------------------------------------------------------
+
+
+def summarize_spend(paths: list[Path], since: str | None = None) -> dict[tuple[str, str], dict[str, float]]:
+    """Total cost per (currency, model) over llm_call events, optionally since a date (YYYY-MM-DD).
+
+    Only CLI runs write trace files, so this is the recorded spend of real runs
+    (tests use in-memory tracers and never appear here).
+    """
+    totals: dict[tuple[str, str], dict[str, float]] = {}
+    for path in paths:
+        for r in read_trace(path):
+            if r.get("type") != "llm_call" or "cost" not in r:
+                continue
+            if since and r.get("ts", "") < since:
+                continue
+            key = (r.get("currency") or "?", (r.get("response") or {}).get("model") or "?")
+            t = totals.setdefault(key, {"calls": 0, "cost": 0.0, "web_searches": 0})
+            t["calls"] += 1
+            t["cost"] += r["cost"]
+            t["web_searches"] += (r.get("usage") or {}).get("web_searches", 0)
+    return totals

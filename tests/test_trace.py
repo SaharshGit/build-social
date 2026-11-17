@@ -138,3 +138,19 @@ async def test_format_trace_is_readable():
     assert "ATTEMPT 1" in text and "ATTEMPT 2" in text
     assert "CHECKS FAILED (1)" in text and "CHECKS PASSED" in text
     assert "RESULT (greeter): ok | attempts: 2" in text and "INR 40.0000" in text
+
+
+def test_summarize_spend_totals_per_currency_and_model(tmp_path):
+    from buildsocial.harness.trace import summarize_spend
+
+    a = FileTracer(tmp_path, "run", cost_fn=price, currency="INR")
+    a.event("llm_call", usage=Usage(input_tokens=1), response={"model": "sarvam-105b"})
+    a.event("llm_call", usage=Usage(input_tokens=2), response={"model": "sarvam-105b"})
+    b = FileTracer(tmp_path, "run", cost_fn=lambda u: 0.5, currency="USD")
+    b.event("llm_call", usage=Usage(web_searches=3), response={"model": "gemini"})
+    b.event("validation", errors=[])  # not a call: ignored
+
+    totals = summarize_spend(sorted(tmp_path.glob("*.jsonl")))
+    assert totals[("INR", "sarvam-105b")] == {"calls": 2, "cost": 3, "web_searches": 0}
+    assert totals[("USD", "gemini")] == {"calls": 1, "cost": 0.5, "web_searches": 3}
+    assert summarize_spend(sorted(tmp_path.glob("*.jsonl")), since="2999-01-01") == {}

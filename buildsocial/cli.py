@@ -29,7 +29,14 @@ from buildsocial.agents.content import ContentAgent, ContentInput
 from buildsocial.harness.agent import AgentError, AgentResult
 from buildsocial.harness.llm.base import LLMError
 from buildsocial.harness.llm.registry import Pricing, get_client, resolve_model
-from buildsocial.harness.trace import FileTracer, Tracer, format_trace, latest_trace, read_trace
+from buildsocial.harness.trace import (
+    FileTracer,
+    Tracer,
+    format_trace,
+    latest_trace,
+    read_trace,
+    summarize_spend,
+)
 from buildsocial import research_cache
 from buildsocial.pipeline import StepRecord, StepRunner, default_pricing, gather_research, run_pipeline
 from buildsocial.schemas import (
@@ -72,10 +79,15 @@ def main(argv: list[str] | None = None) -> int:
     trace.add_argument("file", nargs="?", type=Path, help="trace file (default: the most recent in traces/)")
     trace.add_argument("--full", action="store_true", help="show complete prompts and the run's input")
 
+    spend = commands.add_parser("spend", help="total recorded LLM spend, from trace files")
+    spend.add_argument("--since", help="only count runs on or after this date (YYYY-MM-DD)")
+
     args = parser.parse_args(argv)
     try:
         if args.command == "trace":
             return show_trace(args)
+        if args.command == "spend":
+            return show_spend(args)
         brand, brief = load_brand(args.brand), make_brief(args)
         if args.command == "run":
             return asyncio.run(run_full_pipeline(args, brand, brief))
@@ -257,6 +269,23 @@ def print_plan(plan: ContentPlan, research: ResearchReport) -> None:
         sites = ", ".join(s.title or "?" for i in f.source_ids if (s := research.source(i)))
         print(f"  {n}. {f.fact}  ({sites})")
     print(f"Why:         {plan.rationale}")
+
+
+def show_spend(args: argparse.Namespace) -> int:
+    totals = summarize_spend(sorted(TRACES_DIR.glob("*.jsonl")), since=args.since)
+    if not totals:
+        print("No recorded spend yet." + (f" (since {args.since})" if args.since else ""))
+        return 0
+    print(f"Recorded LLM spend{' since ' + args.since if args.since else ''} (from {TRACES_DIR}/):\n")
+    by_currency: dict[str, float] = {}
+    for (currency, model), t in sorted(totals.items()):
+        searches = f", {int(t['web_searches'])} web searches" if t["web_searches"] else ""
+        print(f"  {model:<26} {int(t['calls']):>4} calls{searches:<20}  {currency} {t['cost']:.4f}")
+        by_currency[currency] = by_currency.get(currency, 0.0) + t["cost"]
+    print("\n  Total: " + ", ".join(f"{cur} {amount:.4f}" for cur, amount in by_currency.items()))
+    print("\n  Note: Gemini searches are priced at the paid rate ($14/1,000), but the first 5,000 a month are free,")
+    print("  so Gemini spend is overstated while you're inside that allowance.")
+    return 0
 
 
 def show_trace(args: argparse.Namespace) -> int:
