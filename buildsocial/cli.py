@@ -37,8 +37,17 @@ from buildsocial.harness.trace import (
     read_trace,
     summarize_spend,
 )
-from buildsocial import research_cache
-from buildsocial.pipeline import StepRecord, StepRunner, default_pricing, gather_research, run_pipeline
+from buildsocial import output, research_cache
+from buildsocial.output import save_post
+from buildsocial.pipeline import (
+    PipelineResult,
+    StepRecord,
+    StepRunner,
+    default_pricing,
+    gather_research,
+    revise_with_feedback,
+    run_pipeline,
+)
 from buildsocial.schemas import (
     BrandProfile,
     ContentPlan,
@@ -73,6 +82,10 @@ def main(argv: list[str] | None = None) -> int:
     add_research_args(run)
     run.add_argument(
         "--research-file", type=Path, help="use a saved research report (JSON) instead of researching"
+    )
+    run.add_argument(
+        "--interactive", action="store_true",
+        help="ask to approve/revise even when input isn't a terminal (e.g. answers piped in)",
     )
 
     trace = commands.add_parser("trace", help="show what happened in a run")
@@ -202,8 +215,64 @@ async def run_full_pipeline(args: argparse.Namespace, brand: BrandProfile, brief
         print_draft(result.draft)
         print_review(result.review, title="REVIEW OF FINAL DRAFT")
 
+    # Human approval: ask when someone is at the terminal (or --interactive); otherwise save as pending.
+    interactive = args.interactive or (sys.stdin.isatty() and not args.json)
+    feedback: list[str] = []
+    status: str | None = "pending"
+    if interactive:
+        result, status, feedback = await approval_loop(result, brand, brief, tracer)
+
     print_steps(result.steps, result.research_origin)
+    if status is None:
+        print("Not saved.", file=sys.stderr)
+    else:
+        md_path, _ = save_post(output.DEFAULT_DIR, brand, brief, result, status, feedback)
+        print(f"Saved ({status.upper()}): {md_path}", file=sys.stderr)
     return 0
+
+
+MAX_FEEDBACK_ROUNDS = 3
+
+
+async def approval_loop(
+    result: PipelineResult,
+    brand: BrandProfile,
+    brief: PostBrief,
+    tracer: Tracer,
+    ask: Callable[[str], str] = input,
+    revise: Callable[..., Any] = revise_with_feedback,
+) -> tuple[PipelineResult, str | None, list[str]]:
+    """Approve, revise with feedback, save for later, or quit. Returns (result, status or None, feedback)."""
+    feedback: list[str] = []
+    while True:
+        try:
+            choice = ask("\n[a] approve   [r] revise with feedback   [s] save for later   [q] quit without saving\n> ")
+        except EOFError:  # input ran out (e.g. piped): keep the post, undecided
+            return result, "pending", feedback
+        choice = choice.strip().lower()[:1]
+        if choice == "a":
+            return result, "approved", feedback
+        if choice == "s":
+            return result, "pending", feedback
+        if choice == "q":
+            return result, None, feedback
+        if choice != "r":
+            print("Please type a, r, s or q.")
+            continue
+        if len(feedback) >= MAX_FEEDBACK_ROUNDS:
+            print(f"Already revised {MAX_FEEDBACK_ROUNDS} times; approve, save or quit (or edit the saved file).")
+            continue
+        try:
+            text = ask("What should change?\n> ").strip()
+        except EOFError:
+            return result, "pending", feedback
+        if not text:
+            continue
+        print("Revising...", file=sys.stderr)
+        result = await revise(result, brand, brief, text, tracer=tracer)
+        feedback.append(text)
+        print_draft(result.draft)
+        print_review(result.review, title="REVIEW OF FINAL DRAFT")
 
 
 async def run_research(args: argparse.Namespace, brand: BrandProfile, brief: PostBrief) -> int:

@@ -27,3 +27,6 @@ npm-debug.log*
 .vscode/
 .idea/
 .DS_Store
+
+# Generated posts (local working data)
+output/

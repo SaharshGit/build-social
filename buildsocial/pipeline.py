@@ -17,7 +17,7 @@ generic harness pipeline can be extracted once a second pipeline shows what it n
 
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -227,3 +227,39 @@ def _totals(steps: list[StepRecord]) -> dict[str, float]:
     for s in steps:
         totals[s.pricing.currency] = round(totals.get(s.pricing.currency, 0.0) + s.cost, 6)
     return totals
+
+
+async def revise_with_feedback(
+    result: PipelineResult,
+    brand: BrandProfile,
+    brief: PostBrief,
+    feedback: str,
+    *,
+    tracer: Tracer | None = None,
+    client_for: Callable[[str], LLMClient] = get_client,
+    pricing_for: Callable[[str], Pricing] = default_pricing,
+) -> PipelineResult:
+    """Apply a person's feedback: revise the draft (also fixing any still-open review issues), review again.
+
+    Same path as the reviewer's revisions, so the code checks and the re-review still apply.
+    """
+    tracer = tracer or Tracer()
+    run = StepRunner(tracer, client_for, pricing_for)
+    round_no = sum(1 for s in result.steps if s.agent.startswith("feedback_revision")) + 1
+    tracer.event("human_feedback", round=round_no, feedback=feedback)
+
+    revision = Revision(previous=result.draft, issues=result.review.issues, human_feedback=feedback)
+    content_in = ContentInput(brand=brand, brief=brief, plan=result.plan, research=result.research, revision=revision)
+    draft = await run(ContentAgent(), content_in, label=f"feedback_revision_{round_no}")
+    review = await run(
+        ReviewerAgent(),
+        ReviewInput(brand=brand, brief=brief, plan=result.plan, research=result.research, draft=draft),
+        label=f"feedback_review_{round_no}",
+    )
+    return replace(
+        result,
+        draft=draft,
+        review=review,
+        history=result.history + [(result.draft, result.review)],
+        steps=result.steps + run.steps,
+    )

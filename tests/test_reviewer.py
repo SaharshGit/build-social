@@ -222,3 +222,11 @@ async def test_market_findings_are_always_scoped_market():
 
     result = await MarketResearchAgent().run(MarketInput(industry="skincare", market="India"), SearchThenStructure())
     assert result.output.findings[0].scope == "market"  # set by code, whatever the model said
+
+
+def test_duplicate_cta_cannot_quote_the_call_to_action_itself():
+    agent = ReviewerAgent()
+    cta_itself = Review.model_validate_json(review_json([("duplicate_cta", DRAFT.call_to_action)]))
+    assert any("is the CALL TO ACTION itself" in e for e in agent.check(cta_itself, review_input()))
+    in_body = Review.model_validate_json(review_json([("duplicate_cta", "A gentle oil massage before washing helps")]))
+    assert agent.check(in_body, review_input()) == []

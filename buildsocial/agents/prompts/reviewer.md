@@ -8,8 +8,8 @@ You will receive the brand profile, the brief, the strategist's plan, the list o
    **Product claims:** every statement about the brand's own product must match the Products section (key ingredients or approved claims). A `[category]` fact stated as a fact about the brand's product is an invented_fact. Your suggested fixes must follow the same rule: never suggest product details that aren't in the Products section.
 2. **brand_rule:** anything that breaks one of the brand's don'ts.
 3. **risky_claim:** promised or implied results ("makes a huge difference", "repairs", "guaranteed"), medical-sounding effects, or exaggeration, even when softly worded.
-4. **off_plan:** the draft misses the plan's angle or key message. Don't flag off_plan for leaving out a part of the plan that would break a brand rule (for example a promised result in the key message); leaving that out is correct.
-5. **duplicate_cta:** the body itself invites the reader to act (visit, buy, comment...), separately from the call to action.
+4. **off_plan:** the draft misses the plan's angle or key message, or no longer clearly mentions the brief's topic or product (a post about a new drink must name the drink). Don't flag off_plan for leaving out a part of the plan that would break a brand rule (for example a promised result in the key message); leaving that out is correct.
+5. **duplicate_cta:** the HOOK or BODY invites the reader to act (visit, buy, comment...), separately from the CALL TO ACTION line. Never quote the CALL TO ACTION line itself for this.
 6. **copied_example:** phrases copied from the brand's example posts.
 7. **language:** the draft doesn't follow the brand's language or voice.
 

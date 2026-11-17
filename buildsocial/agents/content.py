@@ -35,10 +35,17 @@ MIN_CHECKED_QUOTE = 15
 
 
 class Revision(BaseModel):
-    """A reviewed draft to rewrite: keep what works, fix every issue."""
+    """A draft to rewrite: keep what works, fix every issue and apply the person's feedback."""
 
     previous: PostDraft
-    issues: list[ReviewIssue]
+    issues: list[ReviewIssue] = []  # from the Reviewer agent
+    human_feedback: str | None = None  # from the person approving the post
+
+    @model_validator(mode="after")
+    def _needs_something_to_fix(self) -> "Revision":
+        if not self.issues and not (self.human_feedback or "").strip():
+            raise ValueError("a revision needs reviewer issues or human feedback")
+        return self
 
 
 class ContentInput(BaseModel):
@@ -155,25 +162,29 @@ def _revision_section(input: ContentInput) -> str | None:
     rev = input.revision
     if rev is None:
         return None
-    issues = "\n".join(
-        f'{i}. [{issue.type}] "{issue.quote}": {issue.problem} Fix: {issue.fix}'
-        for i, issue in enumerate(rev.issues, 1)
-    )
-    return "\n".join([
+    lines = [
         "",
         "# Revise your previous draft",
-        "An editor reviewed your previous draft. Rewrite it so that EVERY issue below is fixed. "
-        "Keep everything else that works (angle, key message, voice, structure).",
+        "Rewrite your previous draft so that EVERY point below is addressed. "
+        "Keep everything else that works (angle, key message, voice, structure). "
+        "The brand rules still apply to every change. When you remove a problem sentence, keep the post about the "
+        "brief's topic: it must still clearly name the product or subject.",
         "",
         "Previous draft:",
         f"HOOK: {rev.previous.hook}",
         f"BODY: {rev.previous.body}",
         f"CALL TO ACTION: {rev.previous.call_to_action}",
         f"HASHTAGS: {' '.join(rev.previous.hashtags)}",
-        "",
-        "Issues to fix:",
-        issues,
-    ])
+    ]
+    if rev.human_feedback:
+        lines += ["", "Feedback from the person approving this post (most important):", rev.human_feedback.strip()]
+    if rev.issues:
+        lines += ["", "Issues found by the editor:"]
+        lines += [
+            f'{i}. [{issue.type}] "{issue.quote}": {issue.problem} Fix: {issue.fix}'
+            for i, issue in enumerate(rev.issues, 1)
+        ]
+    return "\n".join(lines)
 
 
 def _plan_section(input: ContentInput) -> str | None:

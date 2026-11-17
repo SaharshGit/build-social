@@ -99,6 +99,12 @@ class ReviewerAgent(Agent[ReviewInput, Review]):
                     f"issue {i}: quote '{issue.quote[:60]}' is not in the draft; copy the exact words "
                     "character for character, or remove the issue if the problem isn't really there"
                 )
+            elif issue.type == "duplicate_cta" and not quote_in(issue.quote, f"{input.draft.hook} {input.draft.body}"):
+                # The call-to-action field IS the call to action; only a second one in the hook/body is a duplicate.
+                errors.append(
+                    f"issue {i}: '{issue.quote[:60]}' is the CALL TO ACTION itself, not a duplicate; a duplicate_cta "
+                    "must quote the hook or body. Remove this issue."
+                )
         return errors
 
 
