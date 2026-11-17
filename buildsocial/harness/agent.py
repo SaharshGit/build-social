@@ -110,6 +110,7 @@ class Agent(ABC, Generic[InputT, OutputT]):
                     assert output is not None
                     tracer.event(
                         "run_end",
+                        agent=self.name,
                         status="ok",
                         output=output,
                         attempts=attempt,
@@ -127,6 +128,7 @@ class Agent(ABC, Generic[InputT, OutputT]):
             # Something outside the agent's control (network, API error): record it, then pass it on.
             tracer.event(
                 "run_end",
+                agent=self.name,
                 status="error",
                 error=repr(e),
                 attempts=len(errors_by_attempt) + 1,
@@ -137,6 +139,7 @@ class Agent(ABC, Generic[InputT, OutputT]):
 
         tracer.event(
             "run_end",
+            agent=self.name,
             status="failed",
             error="output still invalid after all attempts",
             attempts=len(errors_by_attempt),

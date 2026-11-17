@@ -172,6 +172,16 @@ class GeminiClient(LLMClient):
                 elif kind == "google_search_call":
                     queries += (step.get("arguments") or {}).get("queries") or []
 
+            if not text_parts:
+                # Seen once with status "completed" and real token usage but no output text.
+                # Never pass an empty answer on as if it were a real one; let the caller retry.
+                step_types = [s.get("type") for s in steps]
+                raise LLMError(
+                    f"Gemini returned no text (status={data.get('status')}, steps={step_types}, "
+                    f"usage={data.get('usage')})",
+                    retryable=True,
+                )
+
             raw_usage = data.get("usage") or {}
             return LLMResponse(
                 text="".join(text_parts) or None,

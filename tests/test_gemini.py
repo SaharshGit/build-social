@@ -155,3 +155,23 @@ def test_inline_refs_resolves_nested_models():
     assert "$defs" not in schema and "$ref" not in json.dumps(schema)
     assert schema["properties"]["facts"]["items"]["properties"]["text"]["type"] == "string"
     assert schema["properties"]["main"]["properties"]["text"]["type"] == "string"
+
+
+async def test_reply_without_text_raises_retryable_error():
+    reply = {"status": "completed", "usage": {"total_output_tokens": 89}, "steps": [{"type": "thought"}]}
+    _, handler = capture(reply)
+    with pytest.raises(LLMError, match="no text") as exc:
+        await client(handler).complete([Message.user("x")], builtin_tools=["web_search"])
+    assert exc.value.retryable and exc.value.status_code is None
+
+
+async def test_long_retry_after_fails_fast_instead_of_sleeping():
+    calls = []
+
+    def handler(req):
+        calls.append(req)
+        return httpx.Response(429, headers={"retry-after": "46000"}, json={"error": {"message": "retry in 12h"}})
+
+    with pytest.raises(LLMError, match="retry in 12h") as exc:
+        await client(handler).complete([Message.user("x")])
+    assert exc.value.status_code == 429 and len(calls) == 1

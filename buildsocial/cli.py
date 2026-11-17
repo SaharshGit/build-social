@@ -1,6 +1,7 @@
 """Command-line entry point.
 
-    uv run buildsocial content --brand examples/brew-house.yaml --topic "monsoon special" --platform instagram
+    uv run buildsocial research --brand examples/brew-house.yaml --topic "monsoon special" --platform instagram
+    uv run buildsocial content  --brand examples/brew-house.yaml --topic "monsoon special" --platform instagram
     uv run buildsocial trace              # show the most recent run
     uv run buildsocial trace <file> --full
 
@@ -13,35 +14,35 @@ import argparse
 import asyncio
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import get_args
+from typing import Any, get_args
 
 import yaml
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from buildsocial.agents.content import ContentAgent, ContentInput
+from buildsocial.agents.research import ResearchAgent, ResearchInput
 from buildsocial.harness.agent import AgentError, AgentResult
 from buildsocial.harness.llm.base import LLMError
 from buildsocial.harness.llm.registry import Pricing, get_client, resolve_model
 from buildsocial.harness.trace import FileTracer, Tracer, format_trace, latest_trace, read_trace
-from buildsocial.schemas import BrandProfile, Format, Goal, Platform, PostBrief, PostDraft
+from buildsocial.schemas import BrandProfile, Format, Goal, Platform, PostBrief, PostDraft, ResearchReport
 
 TRACES_DIR = Path("traces")
+LINE = "─" * 60
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="buildsocial", description="BuildSocial agents from the command line")
     commands = parser.add_subparsers(dest="command", required=True)
 
+    research = commands.add_parser("research", help="research a topic on the web for a brand's post")
+    add_brief_args(research)
+
     content = commands.add_parser("content", help="write one post draft for a brand")
-    content.add_argument("--brand", required=True, type=Path, help="brand profile YAML file")
-    content.add_argument("--topic", required=True, help="what the post is about")
-    content.add_argument("--platform", required=True, choices=get_args(Platform))
+    add_brief_args(content)
     content.add_argument("--format", default="text", choices=get_args(Format))
-    content.add_argument("--goal", default="engagement", choices=get_args(Goal))
-    content.add_argument("--notes", help="extra instructions for this post")
-    content.add_argument("--json", action="store_true", help="print the draft as raw JSON")
-    content.add_argument("--no-trace", action="store_true", help="don't write a trace file for this run")
 
     trace = commands.add_parser("trace", help="show what happened in a run")
     trace.add_argument("file", nargs="?", type=Path, help="trace file (default: the most recent in traces/)")
@@ -51,19 +52,44 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "trace":
             return show_trace(args)
-        return asyncio.run(run_content(args))
+        brand, brief = load_brand(args.brand), make_brief(args)
+        if args.command == "research":
+            print(f"Researching '{brief.topic}' for {brand.name}...", file=sys.stderr)
+            agent = ResearchAgent()
+            return asyncio.run(run_agent(args, agent, ResearchInput(brand=brand, brief=brief), print_report))
+        print(f"Writing {brief.platform} post for {brand.name}...", file=sys.stderr)
+        agent = ContentAgent()
+        return asyncio.run(run_agent(args, agent, ContentInput(brand=brand, brief=brief), print_draft))
     except (FileNotFoundError, ValidationError, yaml.YAMLError, AgentError, LLMError, RuntimeError, KeyError) as e:
         # Expected failures (bad input file, API problem, agent gave up): short message, no traceback.
         print(f"error: {e}", file=sys.stderr)
         return 1
 
 
-async def run_content(args: argparse.Namespace) -> int:
-    brand = load_brand(args.brand)
-    brief = PostBrief(
-        topic=args.topic, platform=args.platform, format=args.format, goal=args.goal, notes=args.notes
+def add_brief_args(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--brand", required=True, type=Path, help="brand profile YAML file")
+    p.add_argument("--topic", required=True, help="what the post is about")
+    p.add_argument("--platform", required=True, choices=get_args(Platform))
+    p.add_argument("--goal", default="engagement", choices=get_args(Goal))
+    p.add_argument("--notes", help="extra instructions for this post")
+    p.add_argument("--json", action="store_true", help="print the result as raw JSON")
+    p.add_argument("--no-trace", action="store_true", help="don't write a trace file for this run")
+
+
+def make_brief(args: argparse.Namespace) -> PostBrief:
+    return PostBrief(
+        topic=args.topic,
+        platform=args.platform,
+        format=getattr(args, "format", "text"),
+        goal=args.goal,
+        notes=args.notes,
     )
-    agent = ContentAgent()
+
+
+async def run_agent(
+    args: argparse.Namespace, agent: Any, input: BaseModel, printer: Callable[[Any], None]
+) -> int:
+    """Run any agent with tracing and cost reporting, then print its output."""
     _, model_cfg = resolve_model(agent.name)
     pricing = model_cfg.pricing
 
@@ -73,11 +99,10 @@ async def run_content(args: argparse.Namespace) -> int:
     else:
         tracer = FileTracer(TRACES_DIR, agent.name, cost_fn=pricing.cost, currency=pricing.currency)
 
-    print(f"Writing {brief.platform} post for {brand.name}...", file=sys.stderr)
     start = time.perf_counter()
     try:
         async with get_client(agent.name) as llm:
-            result = await agent.run(ContentInput(brand=brand, brief=brief), llm, tracer)
+            result = await agent.run(input, llm, tracer)
     except AgentError as e:
         # Failed runs still cost money: report it before the error is printed.
         print(f"cost of failed run: {pricing.currency} {pricing.cost(e.usage):.4f}", file=sys.stderr)
@@ -90,7 +115,7 @@ async def run_content(args: argparse.Namespace) -> int:
     if args.json:
         print(result.output.model_dump_json(indent=2))
     else:
-        print_draft(result.output)
+        printer(result.output)
     print_stats(result, elapsed, pricing)
     return 0
 
@@ -113,21 +138,41 @@ def load_brand(path: Path) -> BrandProfile:
 
 
 def print_draft(draft: PostDraft) -> None:
-    line = "─" * 60
-    print(f"\n{line}\n{draft.platform.upper()} POST\n{line}")
+    print(f"\n{LINE}\n{draft.platform.upper()} POST\n{LINE}")
     print(draft.full_text)  # exactly as it would be published
-    print(line)
+    print(LINE)
     print(f"Image idea: {draft.image_idea}")
     print(f"Rationale:  {draft.rationale}")
     print(f"Length:     hook {len(draft.hook)} chars, post {len(draft.full_text)} chars, {len(draft.hashtags)} hashtags")
 
 
+def print_report(report: ResearchReport) -> None:
+    print(f"\n{LINE}\nRESEARCH REPORT\n{LINE}")
+    print(report.summary)
+    print(f"\nFindings ({len(report.findings)}):")
+    for f in report.findings:
+        refs = ", ".join(str(n) for n in f.source_ids)
+        print(f"  - {f.fact}  [{refs}]")
+    print("\nTrends:")
+    for t in report.trends:
+        print(f"  - {t}")
+    print("\nAngles:")
+    for a in report.angles:
+        print(f"  - {a}")
+    print(f"\nSources ({len(report.sources)}):")
+    for s in report.sources:
+        print(f"  [{s.id}] {s.title}")
+    print(f"\nSearched for: {'; '.join(report.search_queries) or '(nothing)'}")
+    print(LINE)
+
+
 def print_stats(result: AgentResult, elapsed: float, pricing: Pricing) -> None:
     u = result.usage
+    searches = f", web searches {u.web_searches}" if u.web_searches else ""
     print(
         f"\n[{result.model}] {result.attempts} attempt(s), {elapsed:.1f}s | "
         f"tokens: in {u.input_tokens}, cache read {u.cache_read_tokens}, cache write {u.cache_write_tokens}, "
-        f"out {u.output_tokens} (reasoning {u.reasoning_tokens}) | "
+        f"out {u.output_tokens} (reasoning {u.reasoning_tokens}){searches} | "
         f"cost: {pricing.currency} {pricing.cost(u):.4f}",
         file=sys.stderr,
     )

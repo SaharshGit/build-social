@@ -18,6 +18,10 @@ from buildsocial.harness.llm.base import LLMError
 # won't fix themselves, so we fail immediately with a clear error instead.
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
+# If the server asks us to wait longer than this, don't wait: fail now with its message.
+# (A free-tier daily quota once answered "retry in 12h".)
+MAX_RETRY_WAIT_S = 60.0
+
 
 async def post_json(
     http: httpx.AsyncClient,
@@ -43,8 +47,9 @@ async def post_json(
             return resp.json()
 
         retryable = resp.status_code in RETRYABLE_STATUS
-        if retryable and not is_last:
-            await asyncio.sleep(retry_after(resp) or backoff(attempt))
+        wait = retry_after(resp) or backoff(attempt)
+        if retryable and not is_last and wait <= MAX_RETRY_WAIT_S:
+            await asyncio.sleep(wait)
             continue
 
         raise LLMError(

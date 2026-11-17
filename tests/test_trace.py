@@ -137,4 +137,4 @@ async def test_format_trace_is_readable():
     assert "agent: greeter" in text
     assert "ATTEMPT 1" in text and "ATTEMPT 2" in text
     assert "CHECKS FAILED (1)" in text and "CHECKS PASSED" in text
-    assert "RESULT: ok | attempts: 2" in text and "INR 40.0000" in text
+    assert "RESULT (greeter): ok | attempts: 2" in text and "INR 40.0000" in text

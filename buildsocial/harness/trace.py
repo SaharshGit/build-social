@@ -151,7 +151,7 @@ def format_trace(records: list[dict[str, Any]], full: bool = False) -> str:
 
         elif kind == "run_end":
             lines.append(
-                f"RESULT: {r.get('status')} | attempts: {r.get('attempts', '?')} | "
+                f"RESULT ({r.get('agent', '?')}): {r.get('status')} | attempts: {r.get('attempts', '?')} | "
                 f"{r.get('duration_s', 0):.1f}s | {_usage_text(r.get('usage', {}))}{_cost_text(r)}"
             )
             if r.get("error"):
