@@ -123,3 +123,32 @@ def test_extract_json():
     assert extract_json('```json\n{"a": 1}\n```') == '{"a": 1}'
     assert extract_json("no braces") is None
     assert extract_json(None) is None
+
+
+class CutOffThenValidLLM(LLMClient):
+    """First reply is cut off by the token limit (a runaway), second is valid."""
+
+    def __init__(self):
+        self.calls = []
+
+    async def complete(self, messages, tools=None, output_schema=None, temperature=None, max_tokens=None,
+                       builtin_tools=None):
+        self.calls.append({"messages": list(messages), "max_tokens": max_tokens})
+        if len(self.calls) == 1:
+            return LLMResponse(text='{"message": "Hi",' + "\n  " * 500, stop_reason="max_tokens",
+                               usage=Usage(output_tokens=1000), model="fake")
+        return LLMResponse(text=VALID, stop_reason="end", usage=Usage(output_tokens=5), model="fake")
+
+
+async def test_cut_off_reply_is_retried_fresh_with_the_agents_token_cap():
+    class CappedGreeter(GreeterAgent):
+        max_output_tokens = 300
+
+    llm = CutOffThenValidLLM()
+    result = await CappedGreeter().run(Topic(topic="coffee"), llm)
+
+    assert result.attempts == 2
+    assert [c["max_tokens"] for c in llm.calls] == [300, 300]  # the agent's cap is sent on every call
+    # The runaway reply was NOT fed back: the retry is the original two messages.
+    assert [m.role for m in llm.calls[1]["messages"]] == ["system", "user"]
+    assert result.usage.output_tokens == 1005  # but its cost is still counted

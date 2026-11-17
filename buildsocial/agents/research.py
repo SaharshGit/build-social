@@ -48,6 +48,7 @@ class ResearchStructurer(Agent[StructureInput, ResearchNotes]):
     name = "research"  # same model as the search step (agents.research in models.yaml)
     output_type = ResearchNotes
     system_prompt = (PROMPTS_DIR / "research_structure.md").read_text()
+    max_output_tokens = 2500  # up to 8 findings + trends + angles
 
     def build_user_message(self, input: StructureInput) -> str:
         b = input.brief

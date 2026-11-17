@@ -1,14 +1,14 @@
-"""Content agent: brand profile + brief -> one platform-native post draft."""
+"""Content agent: brand profile + brief (+ optional strategy plan) -> one platform-native post draft."""
 
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from buildsocial.harness.agent import Agent
 from buildsocial.harness.skills import render_skills
-from buildsocial.schemas import BrandProfile, PostBrief, PostDraft
+from buildsocial.schemas import BrandProfile, ContentPlan, PostBrief, PostDraft, ResearchReport
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 SKILLS_DIR = Path(__file__).parent.parent / "skills"
@@ -31,12 +31,22 @@ PLATFORM_RULES: dict[str, PlatformRules] = {
 class ContentInput(BaseModel):
     brand: BrandProfile
     brief: PostBrief
+    # Optional: from the Strategy agent. Without a plan the agent writes from the brief alone.
+    plan: ContentPlan | None = None
+    research: ResearchReport | None = None  # needed to resolve the plan's finding numbers
+
+    @model_validator(mode="after")
+    def _plan_needs_research(self) -> "ContentInput":
+        if self.plan and self.plan.finding_ids and self.research is None:
+            raise ValueError("a plan that uses findings needs the research report too")
+        return self
 
 
 class ContentAgent(Agent[ContentInput, PostDraft]):
     name = "content"
     output_type = PostDraft
     system_prompt = (PROMPTS_DIR / "content.md").read_text()
+    max_output_tokens = 2500  # longest post (LinkedIn, 3000 chars) + other fields, with room to spare
 
     def build_system_prompt(self, input: ContentInput) -> str:
         # Base prompt first (identical on every call, so the provider can cache it),
@@ -67,6 +77,7 @@ class ContentAgent(Agent[ContentInput, PostDraft]):
             f"Topic: {brief.topic}",
             f"Goal: {brief.goal}",
             f"Notes: {brief.notes}" if brief.notes else None,
+            _plan_section(input),
             "",
             f"# {brief.platform.capitalize()} limits",
             f"- Hook: at most {rules.hook_max} characters",
@@ -111,6 +122,23 @@ _HASHTAG = re.compile(r"(?<!\w)#\w")  # '#word' not preceded by a letter (so 'C#
 def _normalize(text: str) -> str:
     """Lowercase and collapse whitespace/trailing punctuation, for 'is this repeated?' checks."""
     return " ".join(text.lower().split()).strip(" .!?")
+
+
+def _plan_section(input: ContentInput) -> str | None:
+    plan = input.plan
+    if plan is None:
+        return None
+    facts = plan.approved_facts(input.research) if input.research else []
+    lines = [
+        "",
+        "# Plan (from the strategist: follow it)",
+        f"Angle: {plan.angle}",
+        f"Key message: {plan.key_message}",
+        f"Call to action direction: {plan.cta_direction}",
+        "Facts you may use (exactly as stated; these, plus the brand profile and brief, are the ONLY facts allowed):",
+    ]
+    lines += [f"- {f.fact}" for f in facts] or ["- (none: use only the brand profile and brief)"]
+    return "\n".join(lines)
 
 
 def _bullets(title: str, items: list[str]) -> str | None:

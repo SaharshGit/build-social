@@ -94,3 +94,34 @@ class ResearchReport(ResearchNotes):
 
     def source(self, source_id: int) -> Source | None:
         return next((s for s in self.sources if s.id == source_id), None)
+
+
+# ----------------------------------------------------------------------
+# Strategy
+# ----------------------------------------------------------------------
+
+
+class ContentPlan(BaseModel):
+    """The Strategy agent's output: what this one post should say, and which researched facts it may use.
+
+    Field ORDER matters: models write JSON top to bottom. Concerns and reasoning come
+    first (think before deciding), and the last field is a short, simple one. With
+    `rationale` last, Sarvam once skipped it, couldn't close the JSON in schema mode,
+    and wrote blank space until the token limit (2026-11-17).
+    """
+
+    brief_concerns: list[str] = Field(
+        description="Problems with the brief a human should know about (e.g. it conflicts with the research); "
+        "empty if none"
+    )
+    rationale: str = Field(description="Briefly, which angle and facts suit the brand, goal and platform, and why")
+    angle: str = Field(description="The one angle this post takes, in a sentence")
+    key_message: str = Field(description="The single message the reader should remember, in one sentence")
+    finding_ids: list[int] = Field(
+        description="Numbers of the research findings the post should use (1 to 3), from the numbered list"
+    )
+    cta_direction: str = Field(description="What the call to action should ask the reader to do")
+
+    def approved_facts(self, research: ResearchReport) -> list[Finding]:
+        """The exact research findings this plan selected (copied by code, never re-written by a model)."""
+        return [research.findings[i - 1] for i in self.finding_ids if 1 <= i <= len(research.findings)]

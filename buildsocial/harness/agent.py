@@ -56,6 +56,10 @@ class Agent(ABC, Generic[InputT, OutputT]):
     output_type: type[OutputT]
     system_prompt: str
     max_retries: int = 2  # extra attempts after the first one
+    # Output token cap for this agent's calls (None = the model's default from models.yaml).
+    # Set it a bit above what a valid answer needs: if the model runs away (e.g. loops on
+    # blank space), it stops early instead of burning the model's full limit.
+    max_output_tokens: int | None = None
 
     def build_system_prompt(self, input: InputT) -> str:
         """The system prompt for this input. Override to add input-dependent
@@ -93,7 +97,9 @@ class Agent(ABC, Generic[InputT, OutputT]):
         try:
             for attempt in range(1, self.max_retries + 2):
                 call_started = time.perf_counter()
-                resp = await llm.complete(messages, output_schema=self.output_type)
+                resp = await llm.complete(
+                    messages, output_schema=self.output_type, max_tokens=self.max_output_tokens
+                )
                 usage = usage + resp.usage
                 tracer.event(
                     "llm_call",
@@ -122,6 +128,10 @@ class Agent(ABC, Generic[InputT, OutputT]):
                     )
 
                 errors_by_attempt.append(errors)
+                if resp.stop_reason == "max_tokens":
+                    # A cut-off reply is often a runaway (e.g. thousands of blank lines). Feeding
+                    # it back costs input tokens and invites the same mistake: retry fresh instead.
+                    continue
                 # Show the model its own answer and what's wrong with it, then ask again.
                 messages += [resp.to_message(), Message.user(_fix_request(errors))]
         except Exception as e:

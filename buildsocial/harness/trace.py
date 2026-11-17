@@ -15,6 +15,7 @@ responses are recorded, never request headers.
 Generic: knows nothing about social media or about any LLM provider.
 """
 
+import copy
 import json
 import uuid
 from collections.abc import Callable
@@ -59,6 +60,16 @@ class Tracer:
 
     def write(self, record: dict[str, Any]) -> None:
         """Override to store the record. The base tracer drops it."""
+
+    def scoped(self, cost_fn: CostFn | None, currency: str | None) -> "Tracer":
+        """Same destination and run id, different pricing.
+
+        For pipelines where each step uses a different model (and maybe currency):
+        every step's events go to one trace, each costed with its own model's prices.
+        """
+        child = copy.copy(self)  # shallow: shares the file path / record list
+        child._cost_fn, child._currency = cost_fn, currency
+        return child
 
 
 class FileTracer(Tracer):
@@ -154,6 +165,21 @@ def format_trace(records: list[dict[str, Any]], full: bool = False) -> str:
                 f"RESULT ({r.get('agent', '?')}): {r.get('status')} | attempts: {r.get('attempts', '?')} | "
                 f"{r.get('duration_s', 0):.1f}s | {_usage_text(r.get('usage', {}))}{_cost_text(r)}"
             )
+            if r.get("error"):
+                lines.append(f"error: {r['error']}")
+
+        elif kind == "pipeline_start":
+            lines += [f"PIPELINE {r['run_id']} | brand: {r.get('brand')} | started {r['ts']}", "═" * 60]
+
+        elif kind == "pipeline_end":
+            lines.append("═" * 60)
+            for s in r.get("steps") or []:
+                lines.append(
+                    f"  {s['agent']:<10} {s['attempts']} attempt(s) {s['seconds']:>6.1f}s   "
+                    f"{s['currency']} {s['cost']:.4f}"
+                )
+            totals = ", ".join(f"{cur} {amount:.4f}" for cur, amount in (r.get("totals") or {}).items())
+            lines.append(f"PIPELINE {r.get('status')} | total: {totals or 'n/a'}")
             if r.get("error"):
                 lines.append(f"error: {r['error']}")
 

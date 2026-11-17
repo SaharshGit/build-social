@@ -2,6 +2,8 @@
 
     uv run buildsocial research --brand examples/brew-house.yaml --topic "monsoon special" --platform instagram
     uv run buildsocial content  --brand examples/brew-house.yaml --topic "monsoon special" --platform instagram
+    uv run buildsocial run      --brand examples/brew-house.yaml --topic "monsoon special" --platform instagram \
+                                --research-file examples/research/brew-house-masala-chai.json
     uv run buildsocial trace              # show the most recent run
     uv run buildsocial trace <file> --full
 
@@ -12,6 +14,7 @@ wiring from HTTP requests.
 
 import argparse
 import asyncio
+import json
 import sys
 import time
 from collections.abc import Callable
@@ -27,7 +30,17 @@ from buildsocial.harness.agent import AgentError, AgentResult
 from buildsocial.harness.llm.base import LLMError
 from buildsocial.harness.llm.registry import Pricing, get_client, resolve_model
 from buildsocial.harness.trace import FileTracer, Tracer, format_trace, latest_trace, read_trace
-from buildsocial.schemas import BrandProfile, Format, Goal, Platform, PostBrief, PostDraft, ResearchReport
+from buildsocial.pipeline import run_pipeline
+from buildsocial.schemas import (
+    BrandProfile,
+    ContentPlan,
+    Format,
+    Goal,
+    Platform,
+    PostBrief,
+    PostDraft,
+    ResearchReport,
+)
 
 TRACES_DIR = Path("traces")
 LINE = "─" * 60
@@ -44,6 +57,13 @@ def main(argv: list[str] | None = None) -> int:
     add_brief_args(content)
     content.add_argument("--format", default="text", choices=get_args(Format))
 
+    run = commands.add_parser("run", help="full pipeline: research -> strategy -> content")
+    add_brief_args(run)
+    run.add_argument("--format", default="text", choices=get_args(Format))
+    run.add_argument(
+        "--research-file", type=Path, help="use a saved research report (JSON) instead of searching the web"
+    )
+
     trace = commands.add_parser("trace", help="show what happened in a run")
     trace.add_argument("file", nargs="?", type=Path, help="trace file (default: the most recent in traces/)")
     trace.add_argument("--full", action="store_true", help="show complete prompts and the run's input")
@@ -53,6 +73,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "trace":
             return show_trace(args)
         brand, brief = load_brand(args.brand), make_brief(args)
+        if args.command == "run":
+            return asyncio.run(run_full_pipeline(args, brand, brief))
         if args.command == "research":
             print(f"Researching '{brief.topic}' for {brand.name}...", file=sys.stderr)
             agent = ResearchAgent()
@@ -118,6 +140,62 @@ async def run_agent(
         printer(result.output)
     print_stats(result, elapsed, pricing)
     return 0
+
+
+async def run_full_pipeline(args: argparse.Namespace, brand: BrandProfile, brief: PostBrief) -> int:
+    research = None
+    if args.research_file:
+        if not args.research_file.exists():
+            raise FileNotFoundError(f"research file not found: {args.research_file}")
+        research = ResearchReport.model_validate_json(args.research_file.read_text(encoding="utf-8"))
+
+    tracer: Tracer = Tracer() if args.no_trace else FileTracer(TRACES_DIR, "pipeline")
+    source = f"saved research ({args.research_file})" if research else "live web research"
+    print(f"Running pipeline for {brand.name} on '{brief.topic}' ({brief.platform}), using {source}...", file=sys.stderr)
+    try:
+        result = await run_pipeline(brand, brief, research=research, tracer=tracer)
+    finally:
+        if isinstance(tracer, FileTracer):
+            print(f"trace: {tracer.path}", file=sys.stderr)
+
+    if args.json:
+        print(json.dumps({
+            "research": result.research.model_dump(mode="json"),
+            "plan": result.plan.model_dump(mode="json"),
+            "draft": result.draft.model_dump(mode="json"),
+        }, indent=2, ensure_ascii=False))
+    else:
+        print_plan(result.plan, result.research)
+        print_draft(result.draft)
+
+    print("\nSteps:", file=sys.stderr)
+    for s in result.steps:
+        print(
+            f"  {s.agent:<9} [{s.result.model}] {s.result.attempts} attempt(s), {s.seconds:.1f}s, "
+            f"{s.pricing.currency} {s.cost:.4f}",
+            file=sys.stderr,
+        )
+    totals = ", ".join(f"{cur} {amount:.4f}" for cur, amount in result.totals().items())
+    print(f"Total: {totals}" + (" (research loaded from file: no research cost)" if result.research_from_file else ""),
+          file=sys.stderr)
+    return 0
+
+
+def print_plan(plan: ContentPlan, research: ResearchReport) -> None:
+    print(f"\n{LINE}\nPLAN\n{LINE}")
+    if plan.brief_concerns:
+        print("⚠ Concerns about the brief:")
+        for c in plan.brief_concerns:
+            print(f"  - {c}")
+        print()
+    print(f"Angle:       {plan.angle}")
+    print(f"Key message: {plan.key_message}")
+    print(f"CTA:         {plan.cta_direction}")
+    print("Facts to use:")
+    for n, f in zip(plan.finding_ids, plan.approved_facts(research)):
+        sites = ", ".join(s.title or "?" for i in f.source_ids if (s := research.source(i)))
+        print(f"  {n}. {f.fact}  ({sites})")
+    print(f"Why:         {plan.rationale}")
 
 
 def show_trace(args: argparse.Namespace) -> int:
