@@ -158,3 +158,14 @@ async def test_issues_left_after_one_revision_are_returned_not_hidden():
     result = await coro
     assert result.review.verdict == "revise" and result.review.issues[0].quote == "helps"
     assert len([s for s in result.steps if s.agent.startswith("revision")]) == 1  # no endless loop
+
+
+def test_prompts_put_brand_rules_above_plan_and_fact_wording():
+    from buildsocial.agents import content, reviewer, strategy
+
+    assert "Brand rules beat everything, including the plan and the facts" in content.ContentAgent.system_prompt
+    assert "No promised results in the key message" in strategy.StrategyAgent.system_prompt
+    assert "Never invent offers or mechanics" in strategy.StrategyAgent.system_prompt
+    assert "The plan can be wrong too" in reviewer.ReviewerAgent.system_prompt
+    msg = ContentAgent().build_user_message(ContentInput(brand=BRAND, brief=BRIEF, plan=PLAN, research=RESEARCH))
+    assert "phrase them within the brand rules" in msg

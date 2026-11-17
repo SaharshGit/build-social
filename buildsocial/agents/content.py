@@ -184,7 +184,8 @@ def _plan_section(input: ContentInput) -> str | None:
         f"Angle: {plan.angle}",
         f"Key message: {plan.key_message}",
         f"Call to action direction: {plan.cta_direction}",
-        "Facts you may use (exactly as stated; these, plus the brand profile and brief, are the ONLY facts allowed):",
+        "Facts you may use (don't exaggerate or add to them, and phrase them within the brand rules; these, plus the "
+        "brand profile and brief, are the ONLY facts allowed):",
     ]
     lines += [f"- {f.fact}" for f in facts] or ["- (none: use only the brand profile and brief)"]
     return "\n".join(lines)
