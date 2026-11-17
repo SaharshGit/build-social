@@ -142,6 +142,8 @@ def format_trace(records: list[dict[str, Any]], full: bool = False) -> str:
             for m in r.get("messages", []):
                 lines.append(f"\n  [{m['role']}]")
                 lines.append(_indent(_shorten(m.get("content") or "", full)))
+            for note in resp.get("http_retries") or []:
+                lines.append(f"  [http retry] {note}")
             for q in resp.get("search_queries") or []:
                 lines.append(f"\n  [web search] {q}")
             lines.append("\n  [reply]")

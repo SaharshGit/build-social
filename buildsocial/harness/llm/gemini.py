@@ -84,10 +84,12 @@ class GeminiClient(LLMClient):
         builtin_tools: list[BuiltinTool] | None = None,
     ) -> LLMResponse:
         body = self._build_request(messages, tools, output_schema, temperature, max_tokens, builtin_tools)
+        retries: list[str] = []
         data = await post_json(
-            self._http, "/interactions", body, max_retries=self.max_retries, provider="Gemini", model=self.model
+            self._http, "/interactions", body,
+            max_retries=self.max_retries, provider="Gemini", model=self.model, retry_log=retries,
         )
-        return self._parse_response(data)
+        return self._parse_response(data).model_copy(update={"http_retries": retries})
 
     async def aclose(self) -> None:
         await self._http.aclose()

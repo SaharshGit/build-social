@@ -77,10 +77,12 @@ class SarvamClient(LLMClient):
         if builtin_tools:
             raise LLMError(f"Sarvam has no built-in tools (asked for {builtin_tools}); use a model that does")
         body = self._build_request(messages, tools, output_schema, temperature, max_tokens)
+        retries: list[str] = []
         data = await post_json(
-            self._http, "/chat/completions", body, max_retries=self.max_retries, provider="Sarvam", model=self.model
+            self._http, "/chat/completions", body,
+            max_retries=self.max_retries, provider="Sarvam", model=self.model, retry_log=retries,
         )
-        return self._parse_response(data)
+        return self._parse_response(data).model_copy(update={"http_retries": retries})
 
     async def aclose(self) -> None:
         await self._http.aclose()

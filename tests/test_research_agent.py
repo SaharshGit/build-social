@@ -63,6 +63,13 @@ def research_input() -> ResearchInput:
     return ResearchInput(brand=brand, brief=PostBrief(topic="monsoon special", platform="instagram"))
 
 
+def test_search_message_includes_todays_date(research_input):
+    from datetime import date
+
+    msg = ResearchAgent().build_search_message(research_input.model_copy(update={"today": date(2026, 11, 17)}))
+    assert "Today's date: Tuesday, 17 November 2026" in msg
+
+
 def test_number_sources_merges_same_url():
     sources = number_sources(CITATIONS)
     assert [(s.id, s.title) for s in sources] == [(1, "boldoutline.in"), (2, "indulgexpress.com")]

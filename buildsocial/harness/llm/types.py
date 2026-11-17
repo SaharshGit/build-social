@@ -124,6 +124,7 @@ class LLMResponse(BaseModel):
     tool_calls: list[ToolCall] = Field(default_factory=list)
     citations: list[Citation] = Field(default_factory=list)  # sources, when a built-in search tool was used
     search_queries: list[str] = Field(default_factory=list)  # what the built-in search actually searched for
+    http_retries: list[str] = Field(default_factory=list)  # transient failures retried before this reply
     stop_reason: StopReason
     usage: Usage  # converted to our convention by the adapter
     raw_usage: dict[str, Any] = Field(default_factory=dict)  # provider's original usage JSON, kept for auditing

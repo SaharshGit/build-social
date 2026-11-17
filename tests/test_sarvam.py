@@ -91,6 +91,8 @@ async def test_retries_503_then_succeeds():
     replies = [httpx.Response(503, text="overloaded"), httpx.Response(200, json=TOOL_CALL_REPLY)]
     r = await client(lambda req: replies.pop(0)).complete([Message.user("hi")])
     assert r.model == "sarvam-105b" and not replies
+    # The retry is recorded on the response, so traces show why a call was slow.
+    assert len(r.http_retries) == 1 and "HTTP 503" in r.http_retries[0]
 
 
 async def test_403_fails_immediately_without_retry():

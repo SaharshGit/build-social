@@ -65,6 +65,15 @@ class FakeLLM(LLMClient):
 # --- Strategy agent ----------------------------------------------------------
 
 
+def test_strategy_message_includes_todays_date():
+    from datetime import date
+
+    msg = StrategyAgent().build_user_message(
+        StrategyInput(brand=BRAND, brief=BRIEF, research=RESEARCH, today=date(2026, 11, 17))
+    )
+    assert msg.startswith("Today's date: Tuesday, 17 November 2026")
+
+
 def test_strategy_message_numbers_findings_with_sources_and_brand_rules():
     msg = StrategyAgent().build_user_message(StrategyInput(brand=BRAND, brief=BRIEF, research=RESEARCH))
     assert f"1. {RESEARCH.findings[0].fact} (sources: weatherspark.com, accuweather.com)" in msg

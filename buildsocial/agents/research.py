@@ -12,9 +12,10 @@ exist, so a finding can't claim a source that wasn't actually found.
 """
 
 import time
+from datetime import date
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from buildsocial.harness.agent import Agent, AgentError, AgentResult
 from buildsocial.harness.llm.base import LLMClient, LLMError
@@ -31,6 +32,7 @@ ANGLES_MIN, ANGLES_MAX = 2, 5
 class ResearchInput(BaseModel):
     brand: BrandProfile
     brief: PostBrief
+    today: date = Field(default_factory=date.today)  # models don't know the date; seasons and events need it
 
 
 class StructureInput(BaseModel):
@@ -106,6 +108,7 @@ class ResearchAgent:
         brand, brief = input.brand, input.brief
         lines = [
             f"Research this topic for a {brief.platform} post.",
+            f"Today's date: {input.today:%A, %d %B %Y}. Prefer information that is current as of today.",
             "",
             f"Topic: {brief.topic}",
             f"Goal of the post: {brief.goal}",

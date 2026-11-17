@@ -6,6 +6,7 @@ The leading underscore in the file name marks it as internal to the llm package.
 
 import asyncio
 import random
+import time
 from typing import Any
 
 import httpx
@@ -31,16 +32,24 @@ async def post_json(
     max_retries: int,
     provider: str,
     model: str,
+    retry_log: list[str] | None = None,
 ) -> dict[str, Any]:
-    """POST JSON and return the decoded response, retrying transient failures."""
+    """POST JSON and return the decoded response, retrying transient failures.
+
+    retry_log: if given, a note is appended for every retry (what failed, how long we
+    waited), so callers can record retries in traces instead of them being invisible.
+    """
     for attempt in range(max_retries + 1):
         is_last = attempt == max_retries
+        started = time.perf_counter()
         try:
             resp = await http.post(path, json=body)
         except httpx.TransportError as e:  # connection failed, timeout, etc.
             if is_last:
                 raise LLMError(f"network error calling {provider}: {e!r}", retryable=True) from e
-            await asyncio.sleep(backoff(attempt))
+            wait = backoff(attempt)
+            _note(retry_log, attempt, f"network error {type(e).__name__}", started, wait)
+            await asyncio.sleep(wait)
             continue
 
         if resp.status_code == 200:
@@ -49,6 +58,7 @@ async def post_json(
         retryable = resp.status_code in RETRYABLE_STATUS
         wait = retry_after(resp) or backoff(attempt)
         if retryable and not is_last and wait <= MAX_RETRY_WAIT_S:
+            _note(retry_log, attempt, f"HTTP {resp.status_code}", started, wait)
             await asyncio.sleep(wait)
             continue
 
@@ -58,6 +68,11 @@ async def post_json(
             retryable=retryable,
         )
     raise AssertionError("unreachable")
+
+
+def _note(log: list[str] | None, attempt: int, what: str, started: float, wait: float) -> None:
+    if log is not None:
+        log.append(f"try {attempt + 1}: {what} after {time.perf_counter() - started:.1f}s; retrying in {wait:.1f}s")
 
 
 def backoff(attempt: int) -> float:

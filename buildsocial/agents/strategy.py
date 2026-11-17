@@ -5,9 +5,10 @@ that don't exist, and the Content agent later receives the exact finding text co
 by code (ContentPlan.approved_facts), so facts can't drift between agents.
 """
 
+from datetime import date
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from buildsocial.harness.agent import Agent
 from buildsocial.schemas import BrandProfile, ContentPlan, PostBrief, ResearchReport
@@ -21,6 +22,7 @@ class StrategyInput(BaseModel):
     brand: BrandProfile
     brief: PostBrief
     research: ResearchReport
+    today: date = Field(default_factory=date.today)  # models don't know the date; seasons and events need it
 
 
 class StrategyAgent(Agent[StrategyInput, ContentPlan]):
@@ -37,6 +39,8 @@ class StrategyAgent(Agent[StrategyInput, ContentPlan]):
             findings.append(f"{i}. {f.fact} (sources: {sites or 'unknown'})")
 
         sections = [
+            f"Today's date: {input.today:%A, %d %B %Y}",
+            "",
             "# Brand",
             f"Name: {brand.name}",
             f"What they do: {brand.description.strip()}",
