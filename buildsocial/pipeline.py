@@ -1,4 +1,7 @@
-"""Prototype pipeline: Research (market + topic) -> Strategy -> Content for one post.
+"""Prototype pipeline: Research (market + topic) -> Strategy -> Content -> Review for one post.
+
+If the review finds issues, the Content agent revises once and the draft is reviewed again.
+Issues still left after that are returned (for a human to decide), not hidden.
 
 Plain code decides the order (not an LLM). Each agent gets its own model from
 models.yaml, and each step's cost is recorded in that model's own currency
@@ -20,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from buildsocial import research_cache
-from buildsocial.agents.content import ContentAgent, ContentInput
+from buildsocial.agents.content import ContentAgent, ContentInput, Revision
 from buildsocial.agents.research import (
     MarketInput,
     MarketResearchAgent,
@@ -28,12 +31,15 @@ from buildsocial.agents.research import (
     TopicResearchAgent,
     merge_reports,
 )
+from buildsocial.agents.reviewer import ReviewerAgent, ReviewInput
 from buildsocial.agents.strategy import StrategyAgent, StrategyInput
 from buildsocial.harness.agent import AgentResult
 from buildsocial.harness.llm.base import LLMClient
 from buildsocial.harness.llm.registry import Pricing, get_client, resolve_model
 from buildsocial.harness.trace import Tracer
-from buildsocial.schemas import BrandProfile, ContentPlan, PostBrief, PostDraft, ResearchReport
+from buildsocial.schemas import BrandProfile, ContentPlan, PostBrief, PostDraft, ResearchReport, Review
+
+MAX_REVISIONS = 1
 
 
 def default_pricing(model_alias: str) -> Pricing:
@@ -67,7 +73,9 @@ class PipelineResult:
     research: ResearchReport
     research_origin: dict[str, str]  # layer -> "live", "cache (1.2 days old)", or "file"
     plan: ContentPlan
-    draft: PostDraft
+    draft: PostDraft  # the final draft (revised, if a revision happened)
+    review: Review  # the review of the final draft; its issues are still open
+    history: list[tuple[PostDraft, Review]] = field(default_factory=list)  # earlier drafts and their reviews
     steps: list[StepRecord] = field(default_factory=list)
 
     def totals(self) -> dict[str, float]:
@@ -81,12 +89,12 @@ class StepRunner:
         self.tracer, self.client_for, self.pricing_for = tracer, client_for, pricing_for
         self.steps: list[StepRecord] = []
 
-    async def __call__(self, agent: Any, agent_input: Any) -> Any:
+    async def __call__(self, agent: Any, agent_input: Any, label: str | None = None) -> Any:
         pricing = self.pricing_for(agent.name)  # agent.name = which model (models.yaml)
         started = time.perf_counter()
         async with self.client_for(agent.name) as llm:
             result = await agent.run(agent_input, llm, self.tracer.scoped(pricing.cost, pricing.currency))
-        label = getattr(agent, "label", agent.name)  # how the step is shown (e.g. market_research)
+        label = label or getattr(agent, "label", agent.name)  # how the step is shown (e.g. market_research)
         self.steps.append(StepRecord(label, result, pricing, time.perf_counter() - started))
         return result.output
 
@@ -170,7 +178,22 @@ async def run_pipeline(
             )
         plan = await run(StrategyAgent(), StrategyInput(brand=brand, brief=brief, research=research,
                                                         **({"today": today} if today else {})))
-        draft = await run(ContentAgent(), ContentInput(brand=brand, brief=brief, plan=plan, research=research))
+        content_in = ContentInput(brand=brand, brief=brief, plan=plan, research=research)
+        draft = await run(ContentAgent(), content_in)
+        review = await run(
+            ReviewerAgent(), ReviewInput(brand=brand, brief=brief, plan=plan, research=research, draft=draft)
+        )
+        history: list[tuple[PostDraft, Review]] = []
+        for n in range(1, MAX_REVISIONS + 1):
+            if review.verdict == "pass":
+                break
+            history.append((draft, review))
+            revision = Revision(previous=draft, issues=review.issues)
+            draft = await run(ContentAgent(), content_in.model_copy(update={"revision": revision}), label=f"revision_{n}")
+            review = await run(
+                ReviewerAgent(), ReviewInput(brand=brand, brief=brief, plan=plan, research=research, draft=draft),
+                label=f"review_{n + 1}",
+            )
     except Exception as e:
         tracer.event(
             "pipeline_end",
@@ -182,11 +205,16 @@ async def run_pipeline(
         )
         raise
 
-    result = PipelineResult(research=research, research_origin=origin, plan=plan, draft=draft, steps=run.steps)
+    result = PipelineResult(
+        research=research, research_origin=origin, plan=plan, draft=draft, review=review, history=history,
+        steps=run.steps,
+    )
     tracer.event(
         "pipeline_end",
         status="ok",
         research_origin=origin,
+        revisions=len(history),
+        open_issues=len(review.issues),
         steps=[s.summary() for s in run.steps],
         totals=result.totals(),
         seconds=round(time.perf_counter() - started, 2),

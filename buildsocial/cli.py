@@ -41,6 +41,7 @@ from buildsocial.schemas import (
     PostBrief,
     PostDraft,
     ResearchReport,
+    Review,
 )
 
 TRACES_DIR = Path("traces")
@@ -178,10 +179,16 @@ async def run_full_pipeline(args: argparse.Namespace, brand: BrandProfile, brief
             "research": result.research.model_dump(mode="json"),
             "plan": result.plan.model_dump(mode="json"),
             "draft": result.draft.model_dump(mode="json"),
+            "review": result.review.model_dump(mode="json"),
+            "earlier": [{"draft": d.model_dump(mode="json"), "review": r.model_dump(mode="json")}
+                        for d, r in result.history],
         }, indent=2, ensure_ascii=False))
     else:
         print_plan(result.plan, result.research)
+        for n, (_, earlier_review) in enumerate(result.history, 1):
+            print_review(earlier_review, title=f"REVIEW OF DRAFT {n} (sent back for revision)")
         print_draft(result.draft)
+        print_review(result.review, title="REVIEW OF FINAL DRAFT")
 
     print_steps(result.steps, result.research_origin)
     return 0
@@ -220,6 +227,19 @@ def print_steps(steps: list[StepRecord], research_origin: dict[str, str]) -> Non
         totals[s.pricing.currency] = totals.get(s.pricing.currency, 0.0) + s.cost
     print("Total: " + (", ".join(f"{cur} {amount:.4f}" for cur, amount in totals.items()) or "nothing (all cached)"),
           file=sys.stderr)
+
+
+def print_review(review: Review, title: str) -> None:
+    print(f"\n{LINE}\n{title}\n{LINE}")
+    if not review.issues:
+        print("✓ No issues found.")
+        return
+    for i, issue in enumerate(review.issues, 1):
+        print(f"{i}. [{issue.type}] \"{issue.quote}\"")
+        print(f"   problem: {issue.problem}")
+        print(f"   fix:     {issue.fix}")
+    if title.startswith("REVIEW OF FINAL"):
+        print(f"\n⚠ {len(review.issues)} issue(s) still open: decide before publishing.")
 
 
 def print_plan(plan: ContentPlan, research: ResearchReport) -> None:

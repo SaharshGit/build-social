@@ -131,3 +131,33 @@ class ContentPlan(BaseModel):
     def approved_facts(self, research: ResearchReport) -> list[Finding]:
         """The exact research findings this plan selected (copied by code, never re-written by a model)."""
         return [research.findings[i - 1] for i in self.finding_ids if 1 <= i <= len(research.findings)]
+
+
+# ----------------------------------------------------------------------
+# Review
+# ----------------------------------------------------------------------
+
+IssueType = Literal[
+    "invented_fact",   # a claim not in the brand profile, brief or approved facts
+    "brand_rule",      # breaks one of the brand's don'ts
+    "risky_claim",     # promised results, medical-sounding effects, exaggeration
+    "off_plan",        # misses the plan's angle or key message
+    "duplicate_cta",   # the body contains its own call to action
+    "copied_example",  # wording copied from the brand's example posts
+    "language",        # not in the brand's language or voice
+    "other",
+]
+
+
+class ReviewIssue(BaseModel):
+    type: IssueType
+    quote: str = Field(description="The exact words from the draft that have the problem, copied character for character")
+    problem: str = Field(description="What is wrong, in one sentence")
+    fix: str = Field(description="What to change, concretely")
+
+
+class Review(BaseModel):
+    """The Reviewer agent's output. Issues come first (look before judging), verdict last."""
+
+    issues: list[ReviewIssue] = Field(description="Real problems only; empty if the draft is fine")
+    verdict: Literal["pass", "revise"] = Field(description="'pass' if there are no issues, otherwise 'revise'")

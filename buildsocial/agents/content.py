@@ -8,7 +8,8 @@ from pydantic import BaseModel, model_validator
 
 from buildsocial.harness.agent import Agent
 from buildsocial.harness.skills import render_skills
-from buildsocial.schemas import BrandProfile, ContentPlan, PostBrief, PostDraft, ResearchReport
+from buildsocial.agents.reviewer import quote_in
+from buildsocial.schemas import BrandProfile, ContentPlan, PostBrief, PostDraft, ResearchReport, ReviewIssue
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 SKILLS_DIR = Path(__file__).parent.parent / "skills"
@@ -28,12 +29,25 @@ PLATFORM_RULES: dict[str, PlatformRules] = {
 }
 
 
+# Quotes shorter than this aren't required to disappear in a revision: a short flagged
+# phrase (often a product name) may legitimately stay while its claim is reworded.
+MIN_CHECKED_QUOTE = 15
+
+
+class Revision(BaseModel):
+    """A reviewed draft to rewrite: keep what works, fix every issue."""
+
+    previous: PostDraft
+    issues: list[ReviewIssue]
+
+
 class ContentInput(BaseModel):
     brand: BrandProfile
     brief: PostBrief
     # Optional: from the Strategy agent. Without a plan the agent writes from the brief alone.
     plan: ContentPlan | None = None
     research: ResearchReport | None = None  # needed to resolve the plan's finding numbers
+    revision: Revision | None = None  # set when rewriting after a review
 
     @model_validator(mode="after")
     def _plan_needs_research(self) -> "ContentInput":
@@ -83,6 +97,7 @@ class ContentAgent(Agent[ContentInput, PostDraft]):
             f"- Hook: at most {rules.hook_max} characters",
             f"- Whole post (hook + body + call to action + hashtags): at most {rules.post_max} characters",
             f"- Hashtags: {rules.hashtags_min} to {rules.hashtags_max}",
+            _revision_section(input),
         ]
         return "\n".join(s for s in sections if s is not None).strip()
 
@@ -113,6 +128,15 @@ class ContentAgent(Agent[ContentInput, PostDraft]):
         if cta and cta in _normalize(output.body):
             errors.append("body: must not repeat the call to action; it is added after the body automatically")
 
+        # A revision must actually remove what the reviewer flagged.
+        if input.revision:
+            for issue in input.revision.issues:
+                if len(issue.quote.strip()) >= MIN_CHECKED_QUOTE and quote_in(issue.quote, output.full_text):
+                    errors.append(
+                        f"revision: '{issue.quote[:60]}' was flagged ({issue.type}) and is still in the draft; "
+                        f"{issue.fix}"
+                    )
+
         return errors
 
 
@@ -122,6 +146,31 @@ _HASHTAG = re.compile(r"(?<!\w)#\w")  # '#word' not preceded by a letter (so 'C#
 def _normalize(text: str) -> str:
     """Lowercase and collapse whitespace/trailing punctuation, for 'is this repeated?' checks."""
     return " ".join(text.lower().split()).strip(" .!?")
+
+
+def _revision_section(input: ContentInput) -> str | None:
+    rev = input.revision
+    if rev is None:
+        return None
+    issues = "\n".join(
+        f'{i}. [{issue.type}] "{issue.quote}": {issue.problem} Fix: {issue.fix}'
+        for i, issue in enumerate(rev.issues, 1)
+    )
+    return "\n".join([
+        "",
+        "# Revise your previous draft",
+        "An editor reviewed your previous draft. Rewrite it so that EVERY issue below is fixed. "
+        "Keep everything else that works (angle, key message, voice, structure).",
+        "",
+        "Previous draft:",
+        f"HOOK: {rev.previous.hook}",
+        f"BODY: {rev.previous.body}",
+        f"CALL TO ACTION: {rev.previous.call_to_action}",
+        f"HASHTAGS: {' '.join(rev.previous.hashtags)}",
+        "",
+        "Issues to fix:",
+        issues,
+    ])
 
 
 def _plan_section(input: ContentInput) -> str | None:
