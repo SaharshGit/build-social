@@ -21,11 +21,14 @@ class PlatformRules:
     post_max: int  # platform's hard limit for the whole post
     hashtags_min: int
     hashtags_max: int
+    banned_phrases: tuple[str, ...] = ()  # conventions that don't exist on this platform
 
 
 PLATFORM_RULES: dict[str, PlatformRules] = {
     "instagram": PlatformRules(hook_max=125, post_max=2200, hashtags_min=3, hashtags_max=10),
-    "linkedin": PlatformRules(hook_max=200, post_max=3000, hashtags_min=0, hashtags_max=5),
+    # "link in bio" is an Instagram convention; LinkedIn posts have no bio link (seen 2026-11-17).
+    "linkedin": PlatformRules(hook_max=200, post_max=3000, hashtags_min=0, hashtags_max=5,
+                              banned_phrases=("link in bio", "link in the bio")),
 }
 
 
@@ -137,6 +140,10 @@ class ContentAgent(Agent[ContentInput, PostDraft]):
         cta = _normalize(output.call_to_action)
         if cta and cta in _normalize(output.body):
             errors.append("body: must not repeat the call to action; it is added after the body automatically")
+
+        for phrase in rules.banned_phrases:
+            if phrase in output.full_text.lower():
+                errors.append(f"post: '{phrase}' doesn't exist on {platform}; rewrite that part for {platform}")
 
         # A revision must actually remove what the reviewer flagged.
         if input.revision:

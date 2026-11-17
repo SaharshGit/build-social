@@ -11,9 +11,11 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from buildsocial.harness.agent import Agent
+from buildsocial.harness.skills import render_skills
 from buildsocial.schemas import BrandProfile, ContentPlan, PostBrief, ResearchReport
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
+SKILLS_DIR = Path(__file__).parent.parent / "skills"
 FACTS_MIN, FACTS_MAX = 1, 3
 MAX_CONCERNS = 3
 
@@ -26,10 +28,16 @@ class StrategyInput(BaseModel):
 
 
 class StrategyAgent(Agent[StrategyInput, ContentPlan]):
+    """Plans with the platform's conventions too (same skills file the writer gets)."""
+
     name = "strategy"
     output_type = ContentPlan
     system_prompt = (PROMPTS_DIR / "strategy.md").read_text()
     max_output_tokens = 1500  # a plan is a few hundred tokens
+
+    def build_system_prompt(self, input: StrategyInput) -> str:
+        platform = render_skills(SKILLS_DIR, [f"platforms/{input.brief.platform}"])
+        return f"{self.system_prompt.strip()}\n\nPlan for this platform's conventions:\n\n{platform}"
 
     def build_user_message(self, input: StrategyInput) -> str:
         brand, brief, research = input.brand, input.brief, input.research

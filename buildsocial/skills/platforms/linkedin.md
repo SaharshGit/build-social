@@ -7,3 +7,4 @@
 - **Emojis:** none, or one at most.
 - **Hashtags:** few and relevant, only in the hashtags field.
 - **Call to action:** invite a visit or a conversation (a question readers can answer from their own experience works well).
+- **No Instagram conventions:** LinkedIn has no "link in bio". Point people to the company page, a named resource, or the comments instead.

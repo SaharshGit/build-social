@@ -78,3 +78,22 @@ def test_linkedin_rules_differ(brand):
     # ...but at most 5 hashtags.
     six = [f"#tag{i}" for i in range(6)]
     assert any("need 0 to 5" in e for e in agent.check(make_draft(platform="linkedin", hashtags=six), inp))
+
+
+def test_linkedin_bans_instagram_link_in_bio(brand):
+    inp = make_input(brand, platform="linkedin")
+    draft = make_draft(platform="linkedin", hashtags=[], call_to_action="Visit the link in bio to read more.")
+    assert any("'link in bio' doesn't exist on linkedin" in e for e in ContentAgent().check(draft, inp))
+    # Fine on Instagram.
+    ig = make_draft(call_to_action="Visit the link in bio to read more.")
+    assert ContentAgent().check(ig, make_input(brand)) == []
+
+
+def test_strategy_plans_with_the_platform_skill(brand):
+    from buildsocial.agents.strategy import StrategyAgent, StrategyInput
+    from buildsocial.schemas import ResearchReport
+
+    research = ResearchReport(summary="s", findings=[], trends=[], search_queries=[], sources=[])
+    prompt = StrategyAgent().build_system_prompt(StrategyInput(brand=brand, brief=PostBrief(
+        topic="t", platform="linkedin"), research=research))
+    assert "## Platform: LinkedIn" in prompt and "no \"link in bio\"" in prompt
