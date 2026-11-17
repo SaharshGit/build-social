@@ -8,6 +8,7 @@ models:
     model: sarvam-105b            # the provider's own model name (check Sarvam docs; names change)
     base_url: https://api.sarvam.ai/v2
     api_key_env: SARVAM_API_KEY   # name of the .env variable holding the key
+    timeout_s: 60                 # normal replies take 2-5s; some requests hang (3x 120s seen 2026-11-17)
     params:                       # sent with every request; per-call arguments override these
       temperature: 0.7
       max_tokens: 8192            # Sarvam counts reasoning tokens in this limit, so keep it generous
@@ -21,14 +22,13 @@ models:
         cache_write: 15           # not listed separately; assumed billed as normal input
         output: 60                # includes reasoning tokens
 
-  # Research: the cheapest Gemini whose Google Search works on the free tier.
-  # Free tier: Google may use prompts to improve its products (fine for test brands,
-  # not for real customer data) and nothing is charged. Prices below are the PAID
-  # tier list prices, so cost shown = what it would cost after enabling billing.
-  # gemini-2.5-flash is retired 2026-12-01; this model may follow. Switch here if so.
-  gemini-2.5-flash-lite:
+  # Research (Gemini + Google Search). Paid tier with a small prepaid credit (₹200):
+  # web research only runs on a cache miss (see research_cache.py).
+  # gemini-2.5-flash-lite was cheaper but is closed to new users (404, 2026-11-17).
+  # gemini-4-hydrogen ($1.50/$7.50) is the next step up if research quality is weak.
+  gemini-3.5-flash-lite:
     provider: gemini
-    model: gemini-2.5-flash-lite
+    model: gemini-3.5-flash-lite
     api_key_env: GEMINI_API_KEY
     params:
       temperature: 0.3            # research should be factual, not creative
@@ -36,17 +36,17 @@ models:
     pricing:                      # from aistudio.google.com/docs/pricing (checked 2026-11-17)
       currency: USD
       per_1m_tokens:
-        input: 0.10
-        cache_read: 0.01
-        output: 0.40
-      # Paid tier: 1,500 grounded requests/day free, then $35 per 1,000 grounded
-      # REQUESTS. We count search QUERIES (a request can run several), so this
-      # overestimates. Left at 0 while on the free tier (500 requests/day free).
-      per_1k_web_searches: 0
+        input: 0.30
+        cache_read: 0.03
+        output: 2.50              # includes thinking tokens
+      # First 5,000 search queries/month are free (shared across Gemini 3+), then
+      # $14 per 1,000 queries. Shown at the paid rate, so cost is overstated while
+      # inside the free allowance.
+      per_1k_web_searches: 14
 
 # Which model each agent uses. "default" is used for any agent not listed.
 agents:
   default: sarvam-105b
-  research: gemini-2.5-flash-lite
+  research: gemini-3.5-flash-lite
   # strategy: sarvam-105b
   # content:  sarvam-105b

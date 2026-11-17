@@ -64,6 +64,8 @@ class ModelConfig(BaseModel):
     api_key_env: str
     params: dict[str, Any] = {}
     pricing: Pricing = Pricing()
+    # Seconds to wait for one HTTP response before treating it as hung and retrying.
+    timeout_s: float = 120.0
 
 
 class ModelsFile(BaseModel):
@@ -86,7 +88,9 @@ class ModelsFile(BaseModel):
 
 
 def _client_kwargs(cfg: ModelConfig, api_key: str) -> dict[str, Any]:
-    kwargs: dict[str, Any] = {"api_key": api_key, "model": cfg.model, "default_params": cfg.params}
+    kwargs: dict[str, Any] = {
+        "api_key": api_key, "model": cfg.model, "default_params": cfg.params, "timeout": cfg.timeout_s,
+    }
     if cfg.base_url:
         kwargs["base_url"] = cfg.base_url
     return kwargs

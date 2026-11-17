@@ -1,5 +1,7 @@
 # Fictional brand for development and testing. Real brands will come from users via the app.
 name: Brew House
+industry: specialty coffee cafe
+market: Bengaluru
 description: >
   A specialty coffee café in Indiranagar, Bengaluru. Single-origin Indian beans
   from Chikmagalur and Coorg, pour-overs, cold brews, and filter coffee with a twist.

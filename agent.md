@@ -23,10 +23,11 @@
 - Done: Step 2 (Content agent via CLI, platform rules in code, cost reporting, reasoning off by default).
 - Done: Step 2f (skills files per platform and format, loaded by code from the brief).
 - Done: Step 3 (tracing to `traces/`, viewer: `uv run buildsocial trace`).
-- Done: Gemini adapter (`harness/llm/gemini.py`, Interactions API, Google Search built in); research agent uses `gemini-2.5-flash-lite` (free tier).
-- Done: Research agent (`agents/research.py`): Gemini search call, then structuring; sources numbered by code; findings must cite existing sources. CLI: `buildsocial research`.
-- Next: prototype 1: Strategy → Content (from the plan) → Reviewer → approval, end to end.
-- Free-tier limit seen: `gemini-2.5-flash-lite` allows 20 requests/day; one research run uses 2+.
-- Gemini can't combine search with JSON output in one call: research = search call, then a structuring call.
+- Done: Gemini adapter (`harness/llm/gemini.py`, Interactions API, Google Search built in); research model chosen in models.yaml.
+- Done: Two-layer research: MARKET (industry + market + week, shared by all brands; input has no brand/brief fields) and TOPIC (private per brand). Cached in `research_cache/` (market: per ISO week; topic: up to 7 days). `--fresh-research` / `--no-cache` flags. Research reports facts only; Strategy forms the angle.
+- Done: Strategy agent + pipeline (`buildsocial run`): Research -> Strategy -> Content; costs per currency.
+- Models: research on `gemini-3.5-flash-lite` (paid, ₹200 prepaid credit: research only on cache miss; 2.5-flash-lite is closed to new users); Strategy/Content on Sarvam (60s timeout; some requests hang).
+- Test brands: `examples/brew-house.yaml` (fictional), `examples/mamaearth.yaml` (real brand, local test fixture only).
+- Next: Reviewer agent (catches invented product claims and near-forbidden promises seen in real runs), then approval in the CLI.
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: the model invents facts and can break brand rules subtly; needs the approval step and an LLM judge in evals.

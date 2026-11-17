@@ -78,7 +78,7 @@ def test_strategy_message_numbers_findings_with_sources_and_brand_rules():
     msg = StrategyAgent().build_user_message(StrategyInput(brand=BRAND, brief=BRIEF, research=RESEARCH))
     assert f"1. {RESEARCH.findings[0].fact} (sources: weatherspark.com, accuweather.com)" in msg
     assert "- Don't make health claims about coffee" in msg
-    assert "Suggested angles (may be adapted or ignored)" in msg
+    assert "angles" not in msg.lower()  # research reports facts only; strategy forms the angle
 
 
 async def test_strategy_unknown_finding_number_is_rejected_and_retried():
@@ -139,7 +139,8 @@ async def test_pipeline_with_saved_research_skips_research_agent():
     result = await run_pipeline(BRAND, BRIEF, research=RESEARCH, tracer=tracer, client_for=client_for,
                                 pricing_for=lambda name: INR)
 
-    assert result.research_from_file and [s.agent for s in result.steps] == ["strategy", "content"]
+    assert result.research_origin == {"research": "file"}
+    assert [s.agent for s in result.steps] == ["strategy", "content"]
     assert result.plan.brief_concerns == ["The monsoon has mostly ended by November."]
     assert result.draft.hook.startswith("Chai ya coffee")
     # The writer received the strategist's chosen facts.
@@ -152,20 +153,53 @@ async def test_pipeline_with_saved_research_skips_research_agent():
     assert tracer.records[-1]["totals"] == {"INR": pytest.approx(0.042)}
 
 
-async def test_pipeline_costs_each_step_in_its_own_currency():
-    search_ok = "Cafes launched monsoon drinks."
-    structure = json.dumps({"summary": "s", "findings": [], "trends": [], "angles": ["a", "b"]})
-    _, client_for = fakes(research=[search_ok, structure], strategy=[plan_json(finding_ids=[], concerns=[])],
+SEARCH_OK = "Cafes launched monsoon drinks."
+STRUCTURE = json.dumps({"summary": "s", "findings": [], "trends": []})
+# The "research" model serves both layers: topic search + structure, then market search + structure.
+LIVE_RESEARCH = [SEARCH_OK, STRUCTURE, SEARCH_OK, STRUCTURE]
+
+
+async def test_pipeline_costs_each_step_in_its_own_currency(tmp_path):
+    _, client_for = fakes(research=list(LIVE_RESEARCH), strategy=[plan_json(finding_ids=[], concerns=[])],
                           content=[DRAFT_JSON])
     tracer = MemoryTracer()
-    result = await run_pipeline(BRAND, BRIEF, tracer=tracer, client_for=client_for,
+    result = await run_pipeline(BRAND, BRIEF, cache_dir=tmp_path, tracer=tracer, client_for=client_for,
                                 pricing_for=lambda name: USD if name == "research" else INR)
 
-    assert [s.agent for s in result.steps] == ["research", "strategy", "content"]
+    assert [s.agent for s in result.steps] == ["topic_research", "market_research", "strategy", "content"]
+    assert result.research_origin == {"topic": "live", "market": "live"}
     assert set(result.totals()) == {"USD", "INR"}  # never added together
     # Every costed event carries the currency of the model that produced it.
     currencies = {r.get("agent") or r.get("attempt"): r["currency"] for r in tracer.records if "currency" in r}
-    assert currencies["search"] == "USD" and currencies["strategy"] == "INR" and currencies["content"] == "INR"
+    assert currencies["market_research"] == "USD" and currencies["strategy"] == "INR"
+
+
+async def test_second_run_reuses_both_research_layers(tmp_path):
+    def run_once(research_replies):
+        _, client_for = fakes(research=research_replies, strategy=[plan_json(finding_ids=[], concerns=[])],
+                              content=[DRAFT_JSON])
+        return run_pipeline(BRAND, BRIEF, cache_dir=tmp_path, client_for=client_for, pricing_for=lambda n: USD)
+
+    await run_once(list(LIVE_RESEARCH))
+    second = await run_once([])  # an empty reply list: any research call would fail the test
+
+    assert second.research_origin["topic"].startswith("cache") and second.research_origin["market"].startswith("cache")
+    assert [s.agent for s in second.steps] == ["strategy", "content"]
+
+
+async def test_another_brand_in_the_same_market_shares_market_research_only(tmp_path):
+    _, client_for = fakes(research=list(LIVE_RESEARCH), strategy=[plan_json(finding_ids=[], concerns=[])],
+                          content=[DRAFT_JSON])
+    await run_pipeline(BRAND, BRIEF, cache_dir=tmp_path, client_for=client_for, pricing_for=lambda n: USD)
+
+    other_cafe = BRAND.model_copy(update={"name": "Other Cafe"})
+    # Only the topic layer may run live: 2 replies (search + structure), none for market.
+    _, client_for = fakes(research=[SEARCH_OK, STRUCTURE], strategy=[plan_json(finding_ids=[], concerns=[])],
+                          content=[DRAFT_JSON])
+    result = await run_pipeline(other_cafe, BRIEF, cache_dir=tmp_path, client_for=client_for,
+                                pricing_for=lambda n: USD)
+    assert result.research_origin["topic"] == "live"  # private: never reused across brands
+    assert result.research_origin["market"].startswith("cache")  # shared
 
 
 async def test_pipeline_failure_is_traced_with_partial_costs():

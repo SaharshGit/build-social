@@ -1,9 +1,12 @@
-"""Prototype pipeline: Research -> Strategy -> Content for one post.
+"""Prototype pipeline: Research (market + topic) -> Strategy -> Content for one post.
 
 Plain code decides the order (not an LLM). Each agent gets its own model from
 models.yaml, and each step's cost is recorded in that model's own currency
 (research runs on Gemini in USD, the others on Sarvam in INR), so totals are kept
 per currency instead of adding rupees to dollars.
+
+Research is the only paid step that can be skipped: each layer is reused from the
+cache when possible (market: shared, per week; topic: per brand, up to 7 days).
 
 This lives in buildsocial/, not harness/, because the steps are BuildSocial's. A
 generic harness pipeline can be extracted once a second pipeline shows what it needs.
@@ -12,10 +15,19 @@ generic harness pipeline can be extracted once a second pipeline shows what it n
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import date
+from pathlib import Path
 from typing import Any
 
+from buildsocial import research_cache
 from buildsocial.agents.content import ContentAgent, ContentInput
-from buildsocial.agents.research import ResearchAgent, ResearchInput
+from buildsocial.agents.research import (
+    MarketInput,
+    MarketResearchAgent,
+    TopicInput,
+    TopicResearchAgent,
+    merge_reports,
+)
 from buildsocial.agents.strategy import StrategyAgent, StrategyInput
 from buildsocial.harness.agent import AgentResult
 from buildsocial.harness.llm.base import LLMClient
@@ -24,8 +36,8 @@ from buildsocial.harness.trace import Tracer
 from buildsocial.schemas import BrandProfile, ContentPlan, PostBrief, PostDraft, ResearchReport
 
 
-def default_pricing(agent_name: str) -> Pricing:
-    return resolve_model(agent_name)[1].pricing
+def default_pricing(model_alias: str) -> Pricing:
+    return resolve_model(model_alias)[1].pricing
 
 
 @dataclass
@@ -53,7 +65,7 @@ class StepRecord:
 @dataclass
 class PipelineResult:
     research: ResearchReport
-    research_from_file: bool
+    research_origin: dict[str, str]  # layer -> "live", "cache (1.2 days old)", or "file"
     plan: ContentPlan
     draft: PostDraft
     steps: list[StepRecord] = field(default_factory=list)
@@ -62,56 +74,120 @@ class PipelineResult:
         return _totals(self.steps)
 
 
+class StepRunner:
+    """Runs agents with the right client, pricing and tracer, and records each step."""
+
+    def __init__(self, tracer: Tracer, client_for: Callable[[str], LLMClient], pricing_for: Callable[[str], Pricing]):
+        self.tracer, self.client_for, self.pricing_for = tracer, client_for, pricing_for
+        self.steps: list[StepRecord] = []
+
+    async def __call__(self, agent: Any, agent_input: Any) -> Any:
+        pricing = self.pricing_for(agent.name)  # agent.name = which model (models.yaml)
+        started = time.perf_counter()
+        async with self.client_for(agent.name) as llm:
+            result = await agent.run(agent_input, llm, self.tracer.scoped(pricing.cost, pricing.currency))
+        label = getattr(agent, "label", agent.name)  # how the step is shown (e.g. market_research)
+        self.steps.append(StepRecord(label, result, pricing, time.perf_counter() - started))
+        return result.output
+
+
+async def gather_research(
+    brand: BrandProfile,
+    brief: PostBrief,
+    run: StepRunner,
+    *,
+    cache_dir: Path | None,
+    fresh: bool = False,
+    today: date | None = None,
+) -> tuple[ResearchReport, dict[str, str]]:
+    """Market + topic research, each from the cache when possible, merged into one report."""
+    today = today or date.today()
+    market_in = MarketInput(industry=brand.industry, market=brand.market, today=today)
+    topic_in = TopicInput(
+        topic=brief.topic, platform=brief.platform, industry=brand.industry, market=brand.market,
+        notes=brief.notes, today=today,
+    )
+    origin: dict[str, str] = {}
+
+    async def layer(name, agent, agent_input, load, save) -> ResearchReport:
+        hit = None if (fresh or cache_dir is None) else load()
+        if hit:
+            cached, path = hit
+            origin[name] = f"cache ({cached.age_days():.1f} days old)"
+            run.tracer.event("research_cache", layer=name, hit=True, path=str(path), age_days=round(cached.age_days(), 2))
+            return cached.report
+        report = await run(agent, agent_input)
+        origin[name] = "live"
+        if cache_dir is not None:
+            path = save(report)
+            run.tracer.event("research_cache", layer=name, hit=False, saved_to=str(path))
+        return report
+
+    topic = await layer(
+        "topic", TopicResearchAgent(), topic_in,
+        lambda: research_cache.load_topic(cache_dir, brand.name, topic_in),
+        lambda r: research_cache.save_topic(cache_dir, brand.name, topic_in, r),
+    )
+    market = await layer(
+        "market", MarketResearchAgent(), market_in,
+        lambda: research_cache.load_market(cache_dir, market_in),
+        lambda r: research_cache.save_market(cache_dir, market_in, r),
+    )
+    return merge_reports(topic, market), origin
+
+
 async def run_pipeline(
     brand: BrandProfile,
     brief: PostBrief,
     *,
     research: ResearchReport | None = None,
+    cache_dir: Path | None = None,  # no caching unless asked: tests can never write fake research to the real cache
+    fresh_research: bool = False,
+    today: date | None = None,
     tracer: Tracer | None = None,
     client_for: Callable[[str], LLMClient] = get_client,
     pricing_for: Callable[[str], Pricing] = default_pricing,
 ) -> PipelineResult:
-    """Run the agents in order. Pass `research` to skip the Research agent (e.g. a saved report).
+    """Run the agents in order.
 
-    client_for / pricing_for map an agent name to its LLM client / prices; tests pass fakes.
+    research:       a saved report to use instead of researching (e.g. from a file)
+    cache_dir:      where research is cached; None (the default) disables the cache.
+                    The CLI passes research_cache.DEFAULT_DIR.
+    fresh_research: ignore cached research and search again (the result is still saved)
+    client_for / pricing_for: model alias -> LLM client / prices; tests pass fakes.
     """
     tracer = tracer or Tracer()
-    steps: list[StepRecord] = []
+    run = StepRunner(tracer, client_for, pricing_for)
     started = time.perf_counter()
     tracer.event("pipeline_start", brand=brand.name, brief=brief, research_from_file=research is not None)
 
-    async def step(agent: Any, agent_input: Any) -> Any:
-        pricing = pricing_for(agent.name)
-        step_started = time.perf_counter()
-        async with client_for(agent.name) as llm:
-            result = await agent.run(agent_input, llm, tracer.scoped(pricing.cost, pricing.currency))
-        steps.append(StepRecord(agent.name, result, pricing, time.perf_counter() - step_started))
-        return result.output
-
     try:
-        from_file = research is not None
-        if research is None:
-            research = await step(ResearchAgent(), ResearchInput(brand=brand, brief=brief))
-        plan = await step(StrategyAgent(), StrategyInput(brand=brand, brief=brief, research=research))
-        draft = await step(
-            ContentAgent(), ContentInput(brand=brand, brief=brief, plan=plan, research=research)
-        )
+        if research is not None:
+            origin = {"research": "file"}
+        else:
+            research, origin = await gather_research(
+                brand, brief, run, cache_dir=cache_dir, fresh=fresh_research, today=today
+            )
+        plan = await run(StrategyAgent(), StrategyInput(brand=brand, brief=brief, research=research,
+                                                        **({"today": today} if today else {})))
+        draft = await run(ContentAgent(), ContentInput(brand=brand, brief=brief, plan=plan, research=research))
     except Exception as e:
         tracer.event(
             "pipeline_end",
             status="error",
             error=repr(e)[:500],
-            steps=[s.summary() for s in steps],
-            totals=_totals(steps),
+            steps=[s.summary() for s in run.steps],
+            totals=_totals(run.steps),
             seconds=round(time.perf_counter() - started, 2),
         )
         raise
 
-    result = PipelineResult(research=research, research_from_file=from_file, plan=plan, draft=draft, steps=steps)
+    result = PipelineResult(research=research, research_origin=origin, plan=plan, draft=draft, steps=run.steps)
     tracer.event(
         "pipeline_end",
         status="ok",
-        steps=[s.summary() for s in steps],
+        research_origin=origin,
+        steps=[s.summary() for s in run.steps],
         totals=result.totals(),
         seconds=round(time.perf_counter() - started, 2),
     )

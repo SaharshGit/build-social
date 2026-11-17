@@ -20,6 +20,10 @@ class BrandProfile(BaseModel):
     """A brand's identity. Written once per brand, reused for every post."""
 
     name: str
+    # industry + market decide which SHARED market research a brand uses: every brand
+    # with the same pair reads the same weekly market report (see research_cache.py).
+    industry: str = Field(description="What kind of business, e.g. 'specialty coffee cafe', 'D2C skincare'")
+    market: str = Field(description="Where its customers are, e.g. 'Bengaluru', 'India'")
     description: str = Field(description="What the business does")
     audience: str = Field(description="Who the brand is talking to")
     voice: str = Field(description="Tone and personality, e.g. 'warm, witty, never salesy'")
@@ -78,12 +82,14 @@ class Finding(BaseModel):
 
 
 class ResearchNotes(BaseModel):
-    """What the model writes when structuring search results (the JSON it returns)."""
+    """What the model writes when structuring search results (the JSON it returns).
+
+    Facts only: no angles. Angles depend on the brand, which is the Strategy agent's job.
+    """
 
     summary: str = Field(description="2-3 sentences: what the research found that matters for this post")
     findings: list[Finding] = Field(description="Facts a post could use, each backed by numbered sources")
     trends: list[str] = Field(description="What is current or seasonal and relevant to the topic, from the research")
-    angles: list[str] = Field(description="Ideas for how the post could approach the topic; must not add new facts")
 
 
 class ResearchReport(ResearchNotes):

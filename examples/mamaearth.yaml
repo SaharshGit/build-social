@@ -1,0 +1,37 @@
+# TEST FIXTURE for local development only. Not affiliated with or endorsed by Mamaearth
+# or Honasa Consumer. Built from public information (checked 2026-11-17); the dos and
+# don'ts are OUR test assumptions, not the brand's real guidelines. Generated posts are
+# test output and must not be published as the brand.
+name: Mamaearth
+industry: D2C skincare and personal care
+market: India
+description: >
+  Indian direct-to-consumer personal care brand founded in 2016 and owned by Honasa
+  Consumer. Positions its products as toxin-free and made with natural ingredients,
+  and says it was the first Asian brand with Made Safe certified products. Range
+  includes skincare (face washes, serums, sunscreens), hair care (such as its onion
+  hair oil and shampoo) and baby care, sold online and in retail stores across India.
+audience: >
+  Indian women and men aged 18-35 who care about what goes into their skincare and
+  haircare, shop online, and follow beauty and self-care content on Instagram; plus
+  young parents looking for gentle baby care.
+voice: Warm, caring and upbeat, like a friend who knows ingredients. Simple words, never preachy or scary.
+language: English with a light Hinglish touch
+content_pillars:
+  - Ingredient stories (what's in the product and why)
+  - Everyday self-care routines
+  - Seasonal skin and hair care
+  - Conscious choices (toxin-free, sustainability)
+dos:
+  - Name the key ingredient and what it's known for, in simple words
+  - Keep routines practical and doable
+  - Use a warm, inclusive tone
+donts:
+  - No medical or therapeutic claims (e.g. "cures acne", "stops hair fall", "treats dandruff")
+  - No guaranteed results, timelines or before/after promises
+  - Never say "chemical-free" (everything is made of chemicals); use the brand's term "toxin-free" only for products positioned that way
+  - Don't mention or criticise competitors
+  - Don't invent offers, discounts or certifications
+example_posts:
+  - "Monsoon frizz, who? Our Onion Shampoo + Conditioner duo is your rainy-day hair hug. Toxin-free, and full of goodness."
+  - "Sunscreen is a daily habit, not a beach-day thing. Swipe for a 3-step morning routine that actually fits your rush hour."

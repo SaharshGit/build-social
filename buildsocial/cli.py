@@ -1,9 +1,10 @@
 """Command-line entry point.
 
-    uv run buildsocial research --brand examples/brew-house.yaml --topic "monsoon special" --platform instagram
+    uv run buildsocial research --brand examples/mamaearth.yaml --topic "onion hair oil in winter" --platform instagram
     uv run buildsocial content  --brand examples/brew-house.yaml --topic "monsoon special" --platform instagram
     uv run buildsocial run      --brand examples/brew-house.yaml --topic "monsoon special" --platform instagram \
                                 --research-file examples/research/brew-house-masala-chai.json
+    uv run buildsocial run      --brand examples/mamaearth.yaml --topic "onion hair oil in winter" --platform instagram
     uv run buildsocial trace              # show the most recent run
     uv run buildsocial trace <file> --full
 
@@ -25,12 +26,12 @@ import yaml
 from pydantic import BaseModel, ValidationError
 
 from buildsocial.agents.content import ContentAgent, ContentInput
-from buildsocial.agents.research import ResearchAgent, ResearchInput
 from buildsocial.harness.agent import AgentError, AgentResult
 from buildsocial.harness.llm.base import LLMError
 from buildsocial.harness.llm.registry import Pricing, get_client, resolve_model
 from buildsocial.harness.trace import FileTracer, Tracer, format_trace, latest_trace, read_trace
-from buildsocial.pipeline import run_pipeline
+from buildsocial import research_cache
+from buildsocial.pipeline import StepRecord, StepRunner, default_pricing, gather_research, run_pipeline
 from buildsocial.schemas import (
     BrandProfile,
     ContentPlan,
@@ -50,8 +51,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="buildsocial", description="BuildSocial agents from the command line")
     commands = parser.add_subparsers(dest="command", required=True)
 
-    research = commands.add_parser("research", help="research a topic on the web for a brand's post")
+    research = commands.add_parser("research", help="market + topic web research for a brand's post")
     add_brief_args(research)
+    add_research_args(research)
 
     content = commands.add_parser("content", help="write one post draft for a brand")
     add_brief_args(content)
@@ -60,8 +62,9 @@ def main(argv: list[str] | None = None) -> int:
     run = commands.add_parser("run", help="full pipeline: research -> strategy -> content")
     add_brief_args(run)
     run.add_argument("--format", default="text", choices=get_args(Format))
+    add_research_args(run)
     run.add_argument(
-        "--research-file", type=Path, help="use a saved research report (JSON) instead of searching the web"
+        "--research-file", type=Path, help="use a saved research report (JSON) instead of researching"
     )
 
     trace = commands.add_parser("trace", help="show what happened in a run")
@@ -76,9 +79,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "run":
             return asyncio.run(run_full_pipeline(args, brand, brief))
         if args.command == "research":
-            print(f"Researching '{brief.topic}' for {brand.name}...", file=sys.stderr)
-            agent = ResearchAgent()
-            return asyncio.run(run_agent(args, agent, ResearchInput(brand=brand, brief=brief), print_report))
+            return asyncio.run(run_research(args, brand, brief))
         print(f"Writing {brief.platform} post for {brand.name}...", file=sys.stderr)
         agent = ContentAgent()
         return asyncio.run(run_agent(args, agent, ContentInput(brand=brand, brief=brief), print_draft))
@@ -96,6 +97,18 @@ def add_brief_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--notes", help="extra instructions for this post")
     p.add_argument("--json", action="store_true", help="print the result as raw JSON")
     p.add_argument("--no-trace", action="store_true", help="don't write a trace file for this run")
+
+
+def add_research_args(p: argparse.ArgumentParser) -> None:
+    p.add_argument(
+        "--fresh-research", action="store_true",
+        help="ignore cached research and search the web again (costs Gemini credit; result is cached)",
+    )
+    p.add_argument("--no-cache", action="store_true", help="don't read or write the research cache")
+
+
+def cache_dir(args: argparse.Namespace) -> Path | None:
+    return None if args.no_cache else research_cache.DEFAULT_DIR
 
 
 def make_brief(args: argparse.Namespace) -> PostBrief:
@@ -150,10 +163,12 @@ async def run_full_pipeline(args: argparse.Namespace, brand: BrandProfile, brief
         research = ResearchReport.model_validate_json(args.research_file.read_text(encoding="utf-8"))
 
     tracer: Tracer = Tracer() if args.no_trace else FileTracer(TRACES_DIR, "pipeline")
-    source = f"saved research ({args.research_file})" if research else "live web research"
-    print(f"Running pipeline for {brand.name} on '{brief.topic}' ({brief.platform}), using {source}...", file=sys.stderr)
+    print(f"Running pipeline for {brand.name} on '{brief.topic}' ({brief.platform})...", file=sys.stderr)
     try:
-        result = await run_pipeline(brand, brief, research=research, tracer=tracer)
+        result = await run_pipeline(
+            brand, brief, research=research, cache_dir=cache_dir(args), fresh_research=args.fresh_research,
+            tracer=tracer,
+        )
     finally:
         if isinstance(tracer, FileTracer):
             print(f"trace: {tracer.path}", file=sys.stderr)
@@ -168,17 +183,43 @@ async def run_full_pipeline(args: argparse.Namespace, brand: BrandProfile, brief
         print_plan(result.plan, result.research)
         print_draft(result.draft)
 
-    print("\nSteps:", file=sys.stderr)
-    for s in result.steps:
+    print_steps(result.steps, result.research_origin)
+    return 0
+
+
+async def run_research(args: argparse.Namespace, brand: BrandProfile, brief: PostBrief) -> int:
+    tracer: Tracer = Tracer() if args.no_trace else FileTracer(TRACES_DIR, "research")
+    print(f"Researching '{brief.topic}' for {brand.name} ({brand.industry}, {brand.market})...", file=sys.stderr)
+    runner = StepRunner(tracer, get_client, default_pricing)
+    try:
+        report, origin = await gather_research(
+            brand, brief, runner, cache_dir=cache_dir(args), fresh=args.fresh_research
+        )
+    finally:
+        if isinstance(tracer, FileTracer):
+            print(f"trace: {tracer.path}", file=sys.stderr)
+    if args.json:
+        print(report.model_dump_json(indent=2))
+    else:
+        print_report(report)
+    print_steps(runner.steps, origin)
+    return 0
+
+
+def print_steps(steps: list[StepRecord], research_origin: dict[str, str]) -> None:
+    print("\nResearch: " + ", ".join(f"{layer} from {how}" for layer, how in research_origin.items()), file=sys.stderr)
+    print("Steps:", file=sys.stderr)
+    totals: dict[str, float] = {}
+    for s in steps:
         print(
-            f"  {s.agent:<9} [{s.result.model}] {s.result.attempts} attempt(s), {s.seconds:.1f}s, "
-            f"{s.pricing.currency} {s.cost:.4f}",
+            f"  {s.agent:<16} [{s.result.model}] {s.result.attempts} attempt(s), {s.seconds:.1f}s, "
+            f"{s.pricing.currency} {s.cost:.4f}" + (f", {s.result.usage.web_searches} web searches"
+                                                   if s.result.usage.web_searches else ""),
             file=sys.stderr,
         )
-    totals = ", ".join(f"{cur} {amount:.4f}" for cur, amount in result.totals().items())
-    print(f"Total: {totals}" + (" (research loaded from file: no research cost)" if result.research_from_file else ""),
+        totals[s.pricing.currency] = totals.get(s.pricing.currency, 0.0) + s.cost
+    print("Total: " + (", ".join(f"{cur} {amount:.4f}" for cur, amount in totals.items()) or "nothing (all cached)"),
           file=sys.stderr)
-    return 0
 
 
 def print_plan(plan: ContentPlan, research: ResearchReport) -> None:
@@ -234,9 +275,6 @@ def print_report(report: ResearchReport) -> None:
     print("\nTrends:")
     for t in report.trends:
         print(f"  - {t}")
-    print("\nAngles:")
-    for a in report.angles:
-        print(f"  - {a}")
     print(f"\nSources ({len(report.sources)}):")
     for s in report.sources:
         print(f"  [{s.id}] {s.title}")

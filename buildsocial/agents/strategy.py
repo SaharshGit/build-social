@@ -63,7 +63,6 @@ class StrategyAgent(Agent[StrategyInput, ContentPlan]):
             "Findings (choose by number):",
             "\n".join(findings) or "(none)",
             _bullets("Trends", research.trends),
-            _bullets("Suggested angles (may be adapted or ignored)", research.angles),
         ]
         return "\n".join(s for s in sections if s is not None).strip()
 

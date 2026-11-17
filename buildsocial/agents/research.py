@@ -1,14 +1,20 @@
-"""Research agent: brand + brief -> ResearchReport backed by real, numbered web sources.
+"""Research: web search turned into sourced, structured findings. Two layers:
 
-Two calls, because Gemini can't combine Google Search with JSON output:
+  MARKET research   industry + market + date ONLY. Shared by every brand in that market
+                    (trends, events, season, what the audience is talking about).
+                    Its input type has no brand or brief fields, so private plans can't
+                    leak into research that other brands will read.
+  TOPIC research    this post's topic. Private to one brand.
+
+Both use the same two-call core, because Gemini can't combine Google Search with JSON
+output in one call:
 
   1. SEARCH     the model searches the web and answers in plain text, with citations
-  2. STRUCTURE  a standard agent loop turns that answer into ResearchNotes (JSON),
-                where each finding refers to sources by number
+  2. STRUCTURE  a standard agent loop turns that answer into findings (JSON) that refer
+                to sources by number; check() rejects numbers that don't exist
 
-Sources are numbered and attached by code from the search citations. The model can
-only refer to them by number, and check() rejects any finding whose numbers don't
-exist, so a finding can't claim a source that wasn't actually found.
+Sources are numbered and attached by code, never written by the model. Research no
+longer suggests angles: those depend on the brand, which is the Strategy agent's job.
 """
 
 import time
@@ -21,53 +27,56 @@ from buildsocial.harness.agent import Agent, AgentError, AgentResult
 from buildsocial.harness.llm.base import LLMClient, LLMError
 from buildsocial.harness.llm.types import Citation, Message, Usage
 from buildsocial.harness.trace import Tracer
-from buildsocial.schemas import BrandProfile, PostBrief, ResearchNotes, ResearchReport, Source
+from buildsocial.schemas import Platform, ResearchNotes, ResearchReport, Source
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 MAX_FINDINGS = 8
 SEARCH_ATTEMPTS = 3
-ANGLES_MIN, ANGLES_MAX = 2, 5
+MODEL_ALIAS = "research"  # both layers use agents.research in models.yaml
 
 
-class ResearchInput(BaseModel):
-    brand: BrandProfile
-    brief: PostBrief
-    today: date = Field(default_factory=date.today)  # models don't know the date; seasons and events need it
+class MarketInput(BaseModel):
+    """Everything market research may know. Deliberately NO brand or brief fields."""
+
+    industry: str
+    market: str
+    today: date = Field(default_factory=date.today)
+
+
+class TopicInput(BaseModel):
+    topic: str
+    platform: Platform
+    industry: str
+    market: str
+    notes: str | None = None
+    today: date = Field(default_factory=date.today)
+
+
+# ----------------------------------------------------------------------
+# Step 2: structuring (standard validate-and-retry agent loop)
+# ----------------------------------------------------------------------
 
 
 class StructureInput(BaseModel):
-    brand_name: str
-    brand_dos: list[str] = []
-    brand_donts: list[str] = []
-    brief: PostBrief
-    notes: str
+    focus: str  # what this research was about, shown to the model
+    notes: str  # the search answer
     sources: list[Source]
 
 
 class ResearchStructurer(Agent[StructureInput, ResearchNotes]):
-    """Step 2: search answer + numbered sources -> ResearchNotes (standard validate-and-retry loop)."""
-
-    name = "research"  # same model as the search step (agents.research in models.yaml)
+    name = MODEL_ALIAS
     output_type = ResearchNotes
     system_prompt = (PROMPTS_DIR / "research_structure.md").read_text()
-    max_output_tokens = 2500  # up to 8 findings + trends + angles
+    max_output_tokens = 2500  # up to 8 findings + trends
 
     def build_user_message(self, input: StructureInput) -> str:
-        b = input.brief
         if input.sources:
             sources = "\n".join(f'[{s.id}] {s.title or "source"}: "{s.passage or ""}"' for s in input.sources)
         else:
             sources = "(no sources were found, so there can be no findings)"
-        rules = [f"- Do: {d}" for d in input.brand_dos] + [f"- Don't: {d}" for d in input.brand_donts]
         return "\n".join([
-            "# Brief",
-            f"Brand: {input.brand_name}",
-            f"Platform: {b.platform}",
-            f"Topic: {b.topic}",
-            f"Goal: {b.goal}",
-            "",
-            "# Brand rules (every angle must respect these)",
-            "\n".join(rules) or "(none)",
+            "# Research focus",
+            input.focus,
             "",
             "# Research notes",
             input.notes.strip() or "(empty)",
@@ -90,42 +99,35 @@ class ResearchStructurer(Agent[StructureInput, ResearchNotes]):
             unknown = [n for n in finding.source_ids if n not in valid]
             if unknown:
                 errors.append(f"{label}: source numbers {unknown} don't exist; valid numbers are {valid}")
-        if not ANGLES_MIN <= len(output.angles) <= ANGLES_MAX:
-            errors.append(f"angles: need {ANGLES_MIN} to {ANGLES_MAX} (got {len(output.angles)})")
         return errors
 
 
-class ResearchAgent:
-    """Runs search, then structuring. Same run() shape as Agent, so callers treat it alike."""
+# ----------------------------------------------------------------------
+# Shared core: search, then structure
+# ----------------------------------------------------------------------
 
-    name = "research"
-    search_prompt = (PROMPTS_DIR / "research_search.md").read_text()
+
+class _SourcedResearch:
+    """Search + structure. Subclasses supply the prompt, the search request and the focus."""
+
+    name = MODEL_ALIAS  # which model to use (models.yaml)
+    label: str  # how this layer appears in traces and step summaries
+    search_prompt: str
 
     def __init__(self) -> None:
         self.structurer = ResearchStructurer()
 
-    def build_search_message(self, input: ResearchInput) -> str:
-        brand, brief = input.brand, input.brief
-        lines = [
-            f"Research this topic for a {brief.platform} post.",
-            f"Today's date: {input.today:%A, %d %B %Y}. Prefer information that is current as of today.",
-            "",
-            f"Topic: {brief.topic}",
-            f"Goal of the post: {brief.goal}",
-            f"Notes: {brief.notes}" if brief.notes else None,
-            "",
-            f"The brand: {brand.name}. {brand.description.strip()}",
-            f"Audience: {brand.audience.strip()}",
-        ]
-        return "\n".join(line for line in lines if line is not None)
+    def build_search_message(self, input) -> str:  # pragma: no cover - overridden
+        raise NotImplementedError
 
-    async def run(
-        self, input: ResearchInput, llm: LLMClient, tracer: Tracer | None = None
-    ) -> AgentResult[ResearchReport]:
+    def focus(self, input) -> str:  # pragma: no cover - overridden
+        raise NotImplementedError
+
+    async def run(self, input, llm: LLMClient, tracer: Tracer | None = None) -> AgentResult[ResearchReport]:
         tracer = tracer or Tracer()
         started = time.perf_counter()
         usage = Usage()
-        tracer.event("run_start", agent=self.name, input=input)
+        tracer.event("run_start", agent=self.label, input=input)
 
         try:
             # 1. SEARCH (retried if the reply comes back empty)
@@ -154,23 +156,14 @@ class ResearchAgent:
 
             # 2. STRUCTURE
             notes = await self.structurer.run(
-                StructureInput(
-                    brand_name=input.brand.name,
-                    brand_dos=input.brand.dos,
-                    brand_donts=input.brand.donts,
-                    brief=input.brief,
-                    notes=search.text or "",
-                    sources=sources,
-                ),
-                llm,
-                tracer,
+                StructureInput(focus=self.focus(input), notes=search.text or "", sources=sources), llm, tracer
             )
             usage = usage + notes.usage
         except AgentError as e:
             # Report the cost of the WHOLE run, including the search call.
             total = usage + e.usage
             self._end(tracer, started, "failed", total, error=str(e))
-            raise AgentError(self.name, e.errors_by_attempt, total) from e
+            raise AgentError(self.label, e.errors_by_attempt, total) from e
         except Exception as e:
             self._end(tracer, started, "error", usage, error=repr(e))
             raise
@@ -179,19 +172,54 @@ class ResearchAgent:
             **notes.output.model_dump(), search_queries=search.search_queries, sources=sources
         )
         self._end(tracer, started, "ok", usage, output=report, attempts=notes.attempts)
-        return AgentResult[ResearchReport](
-            output=report, usage=usage, attempts=notes.attempts, model=search.model
-        )
+        return AgentResult[ResearchReport](output=report, usage=usage, attempts=notes.attempts, model=search.model)
 
     def _end(self, tracer: Tracer, started: float, status: str, usage: Usage, **data) -> None:
         tracer.event(
             "run_end",
-            agent=self.name,
+            agent=self.label,
             status=status,
             usage=usage,
             duration_s=round(time.perf_counter() - started, 3),
             **data,
         )
+
+
+class MarketResearchAgent(_SourcedResearch):
+    label = "market_research"
+    search_prompt = (PROMPTS_DIR / "research_market.md").read_text()
+
+    def build_search_message(self, input: MarketInput) -> str:
+        return "\n".join([
+            f"Research the current market for: {input.industry}",
+            f"Market: {input.market}",
+            f"Today's date: {input.today:%A, %d %B %Y}. Focus on what is current now and in the next few weeks.",
+        ])
+
+    def focus(self, input: MarketInput) -> str:
+        return f"The current market for {input.industry} in {input.market}, as of {input.today:%d %B %Y}."
+
+
+class TopicResearchAgent(_SourcedResearch):
+    label = "topic_research"
+    search_prompt = (PROMPTS_DIR / "research_topic.md").read_text()
+
+    def build_search_message(self, input: TopicInput) -> str:
+        lines = [
+            f"Research this topic for a {input.platform} post: {input.topic}",
+            f"Notes: {input.notes}" if input.notes else None,
+            f"Context: a {input.industry} business; audience in {input.market}.",
+            f"Today's date: {input.today:%A, %d %B %Y}.",
+        ]
+        return "\n".join(line for line in lines if line is not None)
+
+    def focus(self, input: TopicInput) -> str:
+        return f"The topic '{input.topic}' for a {input.industry} business in {input.market}."
+
+
+# ----------------------------------------------------------------------
+# Helpers
+# ----------------------------------------------------------------------
 
 
 def number_sources(citations: list[Citation]) -> list[Source]:
@@ -206,3 +234,31 @@ def number_sources(citations: list[Citation]) -> list[Source]:
         else:
             by_url[c.url] = Source(id=len(by_url) + 1, title=c.title, url=c.url, passage=passage)
     return list(by_url.values())
+
+
+def merge_reports(topic: ResearchReport, market: ResearchReport) -> ResearchReport:
+    """One report for Strategy: topic findings first (most specific), then market.
+
+    Sources are renumbered into one list (a URL found by both layers keeps one number),
+    and every finding's source numbers are rewritten to match.
+    """
+    sources: list[Source] = []
+    by_url: dict[str, int] = {}
+    findings = []
+    for report in (topic, market):
+        new_id: dict[int, int] = {}
+        for s in report.sources:
+            if s.url not in by_url:
+                by_url[s.url] = len(sources) + 1
+                sources.append(s.model_copy(update={"id": by_url[s.url]}))
+            new_id[s.id] = by_url[s.url]
+        for f in report.findings:
+            findings.append(f.model_copy(update={"source_ids": [new_id[n] for n in f.source_ids if n in new_id]}))
+
+    return ResearchReport(
+        summary=f"Topic: {topic.summary}\nMarket: {market.summary}",
+        findings=findings,
+        trends=list(dict.fromkeys(topic.trends + market.trends)),  # de-duplicated, order kept
+        search_queries=topic.search_queries + market.search_queries,
+        sources=sources,
+    )
