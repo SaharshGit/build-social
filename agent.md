@@ -24,10 +24,12 @@
 - Done: Step 2f (skills files per platform and format, loaded by code from the brief).
 - Done: Step 3 (tracing to `traces/`, viewer: `uv run buildsocial trace`).
 - Done: Gemini adapter (`harness/llm/gemini.py`, Interactions API, Google Search built in); research model chosen in models.yaml.
-- Done: Two-layer research: MARKET (industry + market + week, shared by all brands; input has no brand/brief fields) and TOPIC (private per brand). Cached in `research_cache/` (market: per ISO week; topic: up to 7 days). `--fresh-research` / `--no-cache` flags. Research reports facts only; Strategy forms the angle.
-- Done: Strategy agent + pipeline (`buildsocial run`): Research -> Strategy -> Content; costs per currency.
-- Models: research on `gemini-3.5-flash-lite` (paid, ₹200 prepaid credit: research only on cache miss; 2.5-flash-lite is closed to new users); Strategy/Content on Sarvam (60s timeout; some requests hang).
-- Test brands: `examples/brew-house.yaml` (fictional), `examples/mamaearth.yaml` (real brand, local test fixture only).
-- Next: Reviewer agent (catches invented product claims and near-forbidden promises seen in real runs), then approval in the CLI.
+- Done: Two-layer research (shared market + private topic) with caching in `research_cache/`.
+- Done: Strategy, Content, Reviewer (+1 automatic revision), human approval loop, posts saved to `output/`.
+- Done: Product facts in brand profiles; findings tagged by scope; `buildsocial spend` for recorded cost.
+- Models: research `gemini-3.5-flash-lite` (paid, small credit: only on cache miss); strategy/content `sarvam-105b`
+  (20s timeout: about half its calls hang, retries answer fast); reviewer `deepseekv4.1-flash-1017` via Sarvam.
+- Test brands (local fixtures only): `examples/brew-house.yaml` (fictional), `mamaearth.yaml`, `zerodha.yaml`.
+- Next: evals (fixed briefs x 3 brands, code checks + LLM judge) to measure prompt/model changes.
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
-- Open: the model invents facts and can break brand rules subtly; needs the approval step and an LLM judge in evals.
+- Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.

@@ -65,38 +65,49 @@ The `harness/` vs `agents/` split keeps the harness reusable for future agent su
 - Each model in `models.yaml` has a `provider` field (e.g. `sarvam`) telling the registry which adapter to build.
 - **Later:** a passthrough field on `Message` for provider reasoning state (needed by some native adapters for multi-turn tool use).
 
-## 5. Agent pipeline (v1)
+## 5. Agent pipeline (prototype 1, built)
 
 ```
-BrandProfile ─► Research Agent (web_search, fetch_url) ─► ResearchReport
-             ─► Strategy Agent ─► ContentPlan
-             ─► Content Agent  ─► PostDraft
-             ─► Human approval (approve / edit / reject + feedback → revise)
-             ─► saved draft
+BrandProfile (+ products) + PostBrief
+  ─► MARKET research (industry + market + week; SHARED, cached weekly)  ┐ Gemini + Google Search,
+  ─► TOPIC research  (this brief; PRIVATE per brand, cached 7 days)     ┘ only on a cache miss
+       code merges: numbered sources, findings tagged [category]/[market]/[brand]
+  ─► Strategy  ─► ContentPlan (rules_check, angle, key message, finding NUMBERS, CTA, brief concerns)
+  ─► Content   ─► PostDraft   (platform rules + banned phrases checked in code)
+  ─► Reviewer  ─► Review      (every issue quotes the draft; quotes verified in code)
+       issues? ─► Content revises once ─► Reviewer again (open issues are shown, not hidden)
+  ─► Human: approve / revise with feedback / save for later / quit ─► output/<brand>/*.md + .json
 ```
+
+Models (all cheap, set in `models.yaml`): research `gemini-3.5-flash-lite`; strategy and content
+`sarvam-105b`; reviewer `deepseekv4.1-flash-1017` via Sarvam (a different model family from the writer).
+A typical run costs ~₹0.12–0.19 on Sarvam, plus ~₹0.6 of Gemini only when research isn't cached.
 
 Later agents: Creative, Publishing, Analytics.
 
 ### Design rules
 1. Every agent has typed input and output (Pydantic). Agents never talk to each other directly.
 2. Pipeline order is plain code, not LLM-decided: predictable, debuggable, cheap.
-3. The harness enforces schema validation with retries, a max-steps limit, and per-run token/cost limits.
-4. Every run writes a trace: inputs, LLM calls, tool calls, outputs, tokens, cost.
-5. Rejection feedback is fed back to the Content agent for revision (CLI first, a UI approve button later).
-6. Deterministic Python for anything that must be exact (API calls, calculations); LLMs for reasoning and writing.
+3. The harness enforces schema validation with retries and a per-agent output token cap.
+4. Every run writes a trace: inputs, LLM calls (with HTTP retries), outputs, tokens, cost. `buildsocial spend` totals it.
+5. Models refer to facts and sources BY NUMBER; code copies the exact text forward and rejects numbers that don't exist.
+6. Claims about the brand's own products come only from `BrandProfile.products`; category facts are never product facts.
+7. Brand rules override the plan and the wording of facts.
+8. Deterministic Python for anything that must be exact; LLMs for reasoning and writing.
 
 ## 6. Roadmap
 
 - [x] Step 0: Clean repo structure
 - [x] Step 1: LLM layer (`types`, `base`, `sarvam`, `registry` + `models.yaml`) + smoke test (`uv run python -m buildsocial.harness.llm`)
-- [x] Step 2: Content agent with no tools: BrandProfile → structured PostDraft, via CLI (`uv run buildsocial content ...`). Reasoning off by default (~₹0.035 and ~3s per post, vs ~₹0.3–0.5 and 35–60s with reasoning `low`)
-- [x] Step 2f: Skills files (`buildsocial/skills/platforms/*.md`, `skills/formats/text.md`) loaded per brief by `harness/skills.py`; `format` added to the brief (only `text` implemented)
-- [x] Step 3: Tracing: every run writes a JSON Lines trace to `traces/` (prompts, replies, checks, tokens, cost); view with `uv run buildsocial trace`
-- [ ] Step 4: Tools + agent loop: Research agent with web search
-- [ ] Step 5: Pipeline: Research → Strategy → Content
-- [ ] Step 6: Human approval in CLI (approve / edit / reject with feedback)
-- [ ] Step 7: Evals: example brands + output quality checks
-- [ ] Step 8: Decide: keep own harness vs adopt LangGraph; then wrap in FastAPI
+- [x] Step 2: Content agent: BrandProfile → structured PostDraft (`uv run buildsocial content ...`). Reasoning off by default
+- [x] Step 2f: Skills files per platform and format, loaded by code from the brief
+- [x] Step 3: Tracing (`traces/`, `uv run buildsocial trace`)
+- [x] Step 4 (changed): Research via Gemini's built-in Google Search (no own tool loop yet); two layers (shared market, private topic) with caching
+- [x] Step 5: Pipeline: Research → Strategy → Content → Reviewer (`uv run buildsocial run ...`)
+- [x] Step 6: Human approval in the CLI; posts saved to `output/`
+- [ ] Step 7: Evals: fixed briefs for the 3 test brands, scored by code checks + an LLM judge, to compare prompt/model changes
+- [ ] Step 8: Own tool loop (function tools, MCP) when an agent needs tools beyond built-in search
+- [ ] Step 9: Decide: keep own harness vs adopt LangGraph; then wrap in FastAPI
 
 ## 7. Content formats and visuals (planned, not built)
 
