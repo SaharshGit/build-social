@@ -30,6 +30,10 @@
 - Models: research `gemini-3.5-flash-lite` (paid, small credit: only on cache miss); strategy/content `sarvam-105b`
   (20s timeout: about half its calls hang, retries answer fast); reviewer `deepseekv4.1-flash-1017` via Sarvam.
 - Test brands (local fixtures only): `examples/brew-house.yaml` (fictional), `mamaearth.yaml`, `zerodha.yaml`.
-- Next: evals (fixed briefs x 3 brands, code checks + LLM judge) to measure prompt/model changes.
+- Done: evals (`buildsocial eval`, `eval-compare`): 6 cases, frozen research, code checks + DeepSeek judge.
+  Results 2026-11-18: baseline 3/6 -> 6/6 after product facts + must-name-product check (repeat run also 6/6).
+  Average scores move ~0.3 between identical runs: don't trust smaller differences from a single run.
+  2 revision rounds: fewer open issues (13 -> 7) but worse safety (3/6); default stays 1 (`--max-revisions`).
+- Next: Sarvam reliability (hangs/timeouts; a case failed after 4 timeouts): fallback model on failure.
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.

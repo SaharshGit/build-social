@@ -230,3 +230,14 @@ def test_duplicate_cta_cannot_quote_the_call_to_action_itself():
     assert any("is the CALL TO ACTION itself" in e for e in agent.check(cta_itself, review_input()))
     in_body = Review.model_validate_json(review_json([("duplicate_cta", "A gentle Onion Hair Oil massage before washing helps")]))
     assert agent.check(in_body, review_input()) == []
+
+
+async def test_max_revisions_allows_a_second_round():
+    still_bad = review_json([("risky_claim", "helps")])
+    llms = {"strategy": FakeLLM([PLAN_JSON]), "content": FakeLLM([DRAFT_JSON, FIXED_JSON, FIXED_JSON]),
+            "reviewer": FakeLLM([review_json([("invented_fact", INVENTED)]), still_bad, review_json()])}
+    result = await run_pipeline(BRAND, BRIEF, research=RESEARCH, client_for=lambda n: llms[n],
+                                pricing_for=lambda n: INR, max_revisions=2)
+    assert [s.agent for s in result.steps] == ["strategy", "content", "reviewer", "revision_1", "review_2",
+                                               "revision_2", "review_3"]
+    assert result.review.verdict == "pass" and len(result.history) == 2

@@ -86,6 +86,7 @@ def code_checks(case: EvalCase, brand: BrandProfile, draft: PostDraft) -> list[s
 async def run_case(
     case: EvalCase,
     *,
+    max_revisions: int = 1,
     tracer: Tracer | None = None,
     client_for: Callable[[str], LLMClient] = get_client,
     pricing_for: Callable[[str], Pricing] = default_pricing,
@@ -96,7 +97,8 @@ async def run_case(
         brand = BrandProfile.model_validate(yaml.safe_load(case.brand.read_text()))
         research = ResearchReport.model_validate_json(case.research.read_text(encoding="utf-8"))
         result = await run_pipeline(
-            brand, case.brief, research=research, tracer=tracer, client_for=client_for, pricing_for=pricing_for
+            brand, case.brief, research=research, tracer=tracer, client_for=client_for, pricing_for=pricing_for,
+            max_revisions=max_revisions,
         )
         judge_run = StepRunner(tracer, client_for, pricing_for)
         judgement = await judge_run(JudgeAgent(), JudgeInput(brand=brand, brief=case.brief, draft=result.draft))
@@ -122,6 +124,7 @@ async def run_eval(
     cases: list[EvalCase],
     *,
     concurrency: int = 3,
+    max_revisions: int = 1,
     tracer_for: Callable[[EvalCase], Tracer] = lambda case: Tracer(),
     client_for: Callable[[str], LLMClient] = get_client,
     pricing_for: Callable[[str], Pricing] = default_pricing,
@@ -131,7 +134,8 @@ async def run_eval(
 
     async def one(case: EvalCase) -> CaseResult:
         async with limit:
-            return await run_case(case, tracer=tracer_for(case), client_for=client_for, pricing_for=pricing_for)
+            return await run_case(case, max_revisions=max_revisions, tracer=tracer_for(case),
+                                  client_for=client_for, pricing_for=pricing_for)
 
     return list(await asyncio.gather(*(one(c) for c in cases)))
 

@@ -97,6 +97,7 @@ def main(argv: list[str] | None = None) -> int:
     ev.add_argument("--only", nargs="+", help="run only these case ids")
     ev.add_argument("--label", default="run", help="name for this run, e.g. baseline or new-reviewer-prompt")
     ev.add_argument("--concurrency", type=int, default=3)
+    ev.add_argument("--max-revisions", type=int, default=1, help="automatic revise rounds per post")
 
     cmp = commands.add_parser("eval-compare", help="compare two saved eval runs")
     cmp.add_argument("a", type=Path)
@@ -361,6 +362,7 @@ async def run_evals(args: argparse.Namespace) -> int:
     results = await evals.run_eval(
         cases,
         concurrency=args.concurrency,
+        max_revisions=args.max_revisions,
         tracer_for=lambda case: FileTracer(TRACES_DIR, f"eval_{case.id}"),
     )
     print(evals.format_results(results))

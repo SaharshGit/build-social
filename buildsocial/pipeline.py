@@ -39,7 +39,7 @@ from buildsocial.harness.llm.registry import Pricing, get_client, resolve_model
 from buildsocial.harness.trace import Tracer
 from buildsocial.schemas import BrandProfile, ContentPlan, PostBrief, PostDraft, ResearchReport, Review
 
-MAX_REVISIONS = 1
+DEFAULT_MAX_REVISIONS = 1  # automatic review -> revise rounds; compare alternatives with evals
 
 
 def default_pricing(model_alias: str) -> Pricing:
@@ -152,6 +152,7 @@ async def run_pipeline(
     cache_dir: Path | None = None,  # no caching unless asked: tests can never write fake research to the real cache
     fresh_research: bool = False,
     today: date | None = None,
+    max_revisions: int = DEFAULT_MAX_REVISIONS,
     tracer: Tracer | None = None,
     client_for: Callable[[str], LLMClient] = get_client,
     pricing_for: Callable[[str], Pricing] = default_pricing,
@@ -184,7 +185,7 @@ async def run_pipeline(
             ReviewerAgent(), ReviewInput(brand=brand, brief=brief, plan=plan, research=research, draft=draft)
         )
         history: list[tuple[PostDraft, Review]] = []
-        for n in range(1, MAX_REVISIONS + 1):
+        for n in range(1, max_revisions + 1):
             if review.verdict == "pass":
                 break
             history.append((draft, review))
