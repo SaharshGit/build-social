@@ -18,6 +18,19 @@ Role = Literal["system", "user", "assistant", "tool"]
 #   other      - anything provider-specific (content filter, etc.)
 StopReason = Literal["end", "tool_calls", "max_tokens", "other"]
 
+# Tools the provider runs on its own side (we don't execute them). An adapter that
+# doesn't offer one raises a clear error instead of silently ignoring it.
+#   web_search - search the web and ground the answer in results (Gemini: Google Search)
+BuiltinTool = Literal["web_search"]
+
+
+class Citation(BaseModel):
+    """A source backing part of the response text (from a built-in search tool)."""
+
+    url: str
+    title: str | None = None
+    cited_text: str | None = None  # the part of the response this source supports
+
 
 class ToolCall(BaseModel):
     """The LLM asking us to run a tool."""
@@ -81,6 +94,7 @@ class Usage(BaseModel):
     cache_write_tokens: int = 0  # input written into the cache (some providers charge extra)
     output_tokens: int = 0       # everything generated, INCLUDING reasoning tokens
     reasoning_tokens: int = 0    # hidden "thinking" tokens; a subset of output_tokens, for visibility
+    web_searches: int = 0        # search queries run by a built-in search tool (billed per query)
 
     @property
     def total_input_tokens(self) -> int:
@@ -98,6 +112,7 @@ class Usage(BaseModel):
             cache_write_tokens=self.cache_write_tokens + other.cache_write_tokens,
             output_tokens=self.output_tokens + other.output_tokens,
             reasoning_tokens=self.reasoning_tokens + other.reasoning_tokens,
+            web_searches=self.web_searches + other.web_searches,
         )
 
 
@@ -107,6 +122,9 @@ class LLMResponse(BaseModel):
     text: str | None = None
     reasoning: str | None = None  # model's visible "thinking" text, if the provider returns it (for traces)
     tool_calls: list[ToolCall] = Field(default_factory=list)
+    citations: list[Citation] = Field(default_factory=list)  # sources, when a built-in search tool was used
+    search_queries: list[str] = Field(default_factory=list)  # what the built-in search actually searched for
+    http_retries: list[str] = Field(default_factory=list)  # transient failures retried before this reply
     stop_reason: StopReason
     usage: Usage  # converted to our convention by the adapter
     raw_usage: dict[str, Any] = Field(default_factory=dict)  # provider's original usage JSON, kept for auditing

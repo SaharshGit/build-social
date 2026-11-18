@@ -1,0 +1,51 @@
+# Eval cases: fixed briefs scored the same way every time, to compare prompt and model changes.
+#
+# research: a FROZEN research report, so every eval run starts from the same facts and
+#           spends no Gemini credit.
+# must_include / must_not_include: case-insensitive phrases checked in code on the final post.
+#
+# Run:      uv run buildsocial eval --label baseline
+# Compare:  uv run buildsocial eval-compare evals/results/<a>.json evals/results/<b>.json
+
+cases:
+  - id: mamaearth-onion-instagram
+    brand: examples/mamaearth.yaml
+    research: evals/research/mamaearth-onion-oil.json
+    brief: {topic: "onion hair oil for winter hair care", platform: instagram, goal: engagement}
+    must_include: ["onion hair oil"]
+    must_not_include: ["hair fall", "regrowth", "chemical-free", "cures", "guaranteed"]
+
+  - id: mamaearth-onion-linkedin
+    brand: examples/mamaearth.yaml
+    research: evals/research/mamaearth-onion-oil.json
+    brief: {topic: "onion hair oil for winter hair care", platform: linkedin, goal: awareness}
+    must_include: ["onion hair oil"]
+    must_not_include: ["hair fall", "regrowth", "chemical-free", "cures", "guaranteed", "link in bio"]
+
+  - id: zerodha-direct-mf-linkedin
+    brand: examples/zerodha.yaml
+    research: evals/research/zerodha-direct-mf.json
+    brief: {topic: "how direct mutual funds differ from regular plans", platform: linkedin, goal: awareness}
+    must_include: ["direct", "regular"]
+    must_not_include: ["guaranteed", "returns of", "don't miss", "act now", "link in bio"]
+
+  - id: zerodha-direct-mf-instagram
+    brand: examples/zerodha.yaml
+    research: evals/research/zerodha-direct-mf.json
+    brief: {topic: "how direct mutual funds differ from regular plans", platform: instagram, goal: engagement}
+    must_include: ["direct", "regular"]
+    must_not_include: ["guaranteed", "returns of", "don't miss", "act now"]
+
+  - id: brewhouse-chai-instagram
+    brand: examples/brew-house.yaml
+    research: evals/research/brew-house-masala-chai.json
+    brief: {topic: "new Masala Chai Cold Brew", platform: instagram, goal: sales}
+    must_include: ["masala chai cold brew"]
+    must_not_include: ["antioxidant", "digestion", "healthy", "chairs comfy"]
+
+  - id: brewhouse-chai-linkedin
+    brand: examples/brew-house.yaml
+    research: evals/research/brew-house-masala-chai.json
+    brief: {topic: "new Masala Chai Cold Brew", platform: linkedin, goal: awareness}
+    must_include: ["masala chai cold brew"]
+    must_not_include: ["antioxidant", "digestion", "healthy", "link in bio"]

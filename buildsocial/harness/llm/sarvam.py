@@ -7,16 +7,16 @@ Sarvam's API looks like.
 API reference: https://docs.sarvam.ai/api-reference/chat/chat-completions-v2
 """
 
-import asyncio
 import json
-import random
 from typing import Any
 
 import httpx
 from pydantic import BaseModel
 
+from buildsocial.harness.llm._http import post_json
 from buildsocial.harness.llm.base import LLMClient, LLMError
 from buildsocial.harness.llm.types import (
+    BuiltinTool,
     LLMResponse,
     Message,
     StopReason,
@@ -26,12 +26,6 @@ from buildsocial.harness.llm.types import (
 )
 
 DEFAULT_BASE_URL = "https://api.sarvam.ai/v2"
-
-# Statuses where trying again later may succeed:
-# 429 = rate limited, 500/502/503/504 = server-side trouble.
-# Others (400 bad request, 402 no credits, 403 bad key, 404 unknown model) won't fix
-# themselves, so we fail immediately with a clear error instead of retrying.
-RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
 # Sarvam's finish_reason -> our StopReason
 _STOP_REASONS: dict[str, StopReason] = {
@@ -51,12 +45,14 @@ class SarvamClient(LLMClient):
         default_params: dict[str, Any] | None = None,
         timeout: float = 120.0,
         max_retries: int = 3,
+        transport: httpx.AsyncBaseTransport | None = None,
     ):
         """
         default_params: extra request fields applied to every call, from models.yaml
                         (e.g. temperature, max_tokens, reasoning_effort).
                         Per-call arguments to complete() override them.
         timeout:        seconds to wait for a response; reasoning models can be slow.
+        transport:      for tests only: a fake HTTP server (httpx.MockTransport).
         """
         self.model = model
         self.default_params = default_params or {}
@@ -66,6 +62,7 @@ class SarvamClient(LLMClient):
             base_url=base_url.rstrip("/"),
             headers={"api-subscription-key": api_key},  # Sarvam's auth header
             timeout=timeout,
+            transport=transport,
         )
 
     async def complete(
@@ -75,10 +72,17 @@ class SarvamClient(LLMClient):
         output_schema: type[BaseModel] | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        builtin_tools: list[BuiltinTool] | None = None,
     ) -> LLMResponse:
+        if builtin_tools:
+            raise LLMError(f"Sarvam has no built-in tools (asked for {builtin_tools}); use a model that does")
         body = self._build_request(messages, tools, output_schema, temperature, max_tokens)
-        data = await self._post("/chat/completions", body)
-        return self._parse_response(data)
+        retries: list[str] = []
+        data = await post_json(
+            self._http, "/chat/completions", body,
+            max_retries=self.max_retries, provider="Sarvam", model=self.model, retry_log=retries,
+        )
+        return self._parse_response(data).model_copy(update={"http_retries": retries})
 
     async def aclose(self) -> None:
         await self._http.aclose()
@@ -122,37 +126,7 @@ class SarvamClient(LLMClient):
         return body
 
     # ------------------------------------------------------------------
-    # 2. Sending, with retries
-    # ------------------------------------------------------------------
-
-    async def _post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
-        for attempt in range(self.max_retries + 1):
-            is_last = attempt == self.max_retries
-            try:
-                resp = await self._http.post(path, json=body)
-            except httpx.TransportError as e:  # connection failed, timeout, etc.
-                if is_last:
-                    raise LLMError(f"network error calling Sarvam: {e!r}", retryable=True) from e
-                await asyncio.sleep(_backoff(attempt))
-                continue
-
-            if resp.status_code == 200:
-                return resp.json()
-
-            retryable = resp.status_code in RETRYABLE_STATUS
-            if retryable and not is_last:
-                await asyncio.sleep(_retry_after(resp) or _backoff(attempt))
-                continue
-
-            raise LLMError(
-                f"Sarvam returned {resp.status_code} for model {self.model}: {resp.text[:500]}",
-                status_code=resp.status_code,
-                retryable=retryable,
-            )
-        raise AssertionError("unreachable")
-
-    # ------------------------------------------------------------------
-    # 3. Response: Sarvam JSON -> our types
+    # 2. Response: Sarvam JSON -> our types
     # ------------------------------------------------------------------
 
     def _parse_response(self, data: dict[str, Any]) -> LLMResponse:
@@ -236,19 +210,3 @@ def _parse_usage(u: dict[str, Any]) -> Usage:
         output_tokens=u.get("completion_tokens") or 0,  # already includes reasoning
         reasoning_tokens=reasoning,
     )
-
-
-def _backoff(attempt: int) -> float:
-    """Exponential backoff with jitter: ~1s, 2s, 4s ... (max 30s).
-
-    The random jitter stops many clients from retrying at the exact same moment.
-    """
-    return min(2**attempt, 30) + random.uniform(0, 1)
-
-
-def _retry_after(resp: httpx.Response) -> float | None:
-    """Honor the server's Retry-After header (seconds) if it sent one."""
-    try:
-        return float(resp.headers["retry-after"])
-    except (KeyError, ValueError):
-        return None

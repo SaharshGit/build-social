@@ -1,0 +1,225 @@
+{
+  "summary": "Bengaluru experiences pleasant, cool, and dry weather in November, making it ideal for outdoor activities. The city has a strong coffee culture and a growing interest in artisanal brewing methods. Masala Chai is popular for its health benefits and comforting qualities, especially during the tail end of the monsoon season.",
+  "findings": [
+    {
+      "fact": "Bengaluru's weather in November is pleasant, with average high temperatures around 83°F (28°C) and lows around 65°F (18°C).",
+      "source_ids": [
+        1,
+        2
+      ]
+    },
+    {
+      "fact": "November in Bengaluru is characterized by cool, dry weather with decreasing cloud cover and minimal rainfall.",
+      "source_ids": [
+        1,
+        3,
+        4
+      ]
+    },
+    {
+      "fact": "Bengaluru has a vibrant coffee culture with an increasing appreciation for specialty coffee and artisanal brewing methods.",
+      "source_ids": [
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "fact": "During the monsoon season, which extends into early November, there is a rise in demand for comforting street foods and warm beverages in Bengaluru.",
+      "source_ids": [
+        8,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "fact": "Masala Chai is known for its health benefits, including being rich in antioxidants and supporting digestion.",
+      "source_ids": [
+        13,
+        14,
+        15,
+        16,
+        17
+      ]
+    },
+    {
+      "fact": "Masala Chai contains less caffeine than coffee, offering a gentler energy boost.",
+      "source_ids": [
+        13,
+        15,
+        16
+      ]
+    },
+    {
+      "fact": "Cold brew methods are gaining popularity for teas, offering a refreshing way to enjoy their flavors.",
+      "source_ids": [
+        18,
+        19,
+        20
+      ]
+    },
+    {
+      "fact": "Several events, including music performances and a flea market, are scheduled in Indiranagar, Bengaluru, in November 2026.",
+      "source_ids": [
+        21,
+        22
+      ]
+    }
+  ],
+  "trends": [
+    "The monsoon season extends into early November, increasing demand for warm beverages.",
+    "Cold brew methods for teas are gaining popularity.",
+    "November in Bengaluru is favorable for outdoor activities."
+  ],
+  "angles": [
+    "Highlight the unique Masala Chai Cold Brew as the perfect beverage for Bengaluru's pleasant November weather, bridging the gap between the end of the monsoon and the cooler days.",
+    "Emphasize the health benefits of Masala Chai combined with the refreshing nature of cold brew, positioning it as a guilt-free, energizing drink.",
+    "Connect the Masala Chai Cold Brew to Bengaluru's vibrant culture and artisanal coffee scene, appealing to a demographic interested in local experiences.",
+    "Showcase the Masala Chai Cold Brew as an ideal companion for enjoying Bengaluru's outdoor activities or attending local events in November."
+  ],
+  "search_queries": [
+    "Masala Chai Cold Brew recipe",
+    "Masala Chai Cold Brew benefits",
+    "monsoon food trends Bengaluru",
+    "Bengaluru November weather",
+    "Indiranagar events November 2026",
+    "coffee culture Bengaluru",
+    "Brew House Indiranagar Instagram"
+  ],
+  "sources": [
+    {
+      "id": 1,
+      "title": "weatherspark.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHnlfoqHNHyALOLhTCao2sRhnlVW32B0GqOszTlFT9txwAcLTK3bSCkopqYRajx5JgiTdhlew8MMd__Ax6-FXZsOQxaupuey4Z1OxGbJ_A6QUhQaA32zp8mJy5oNQjmq-8pO697G3f4XGaYiFPNpgD-7SlCz_e8v7XjDon01NSygKFJYET1JwIWOe5_PtWI2qmYh42xVNtCiQ==",
+      "passage": "The weather in Bengaluru in November is generally pleasant, with average high temperatures around 83°F (28°C) and lows around 65°F (18°C). Th … city experiences cool and dry weather, with decreasing cloud cover and minimal rainfall. Th"
+    },
+    {
+      "id": 2,
+      "title": "accuweather.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEAUMbaQ0bNCamWfXI-6Jlxx_0fTuJkAHQvUGzC4d4FGLL-nNdidKxXHDW7BDcntwjBUlQoJhAVyRK31rU0rlEYe3DhYHdzP7nf9bhJTnj_kxV9BEckR7-kb9i53_gykzmCN5ldHCVb_XDpJ1zQ_KSkpN7DjkderNmfiHra2okByF83946a",
+      "passage": "The weather in Bengaluru in November is generally pleasant, with average high temperatures around 83°F (28°C) and lows around 65°F (18°C). Th"
+    },
+    {
+      "id": 3,
+      "title": "makemytrip.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE50cCKNbLUTTz2itEhBYOIZ3LoQmmTS0PQTmlLS_bXU0JsgGDH427Qf5BdOnZTwp8L0BXakLN0nIyJzIvRy4l3LqTANzafO3UB4TNO4X7JJi6kT3o6yO795tF0x2vjzPNReGFogoVN9Q78v5i-5Ed3fCy2KjmUChoMatYFqTeK2a2yoerDfhI=",
+      "passage": "city experiences cool and dry weather, with decreasing cloud cover and minimal rainfall. Th … makes November a favorable time for outdoor activities and exploring the city.\n\nB"
+    },
+    {
+      "id": 4,
+      "title": "indiago.app",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQED_PEB9CnDPy6gdcFDlo1VYCK-IZLvI78n8MehlznsIlEwL7dFRSYMENTo3sQLguX43RIsH_ShMKJelSkuTE1ofrQjJIBTG_iQaBFnHmh9dA9mF1p6zn7qYx9TrUeLzTSj0-An7Njp_bd7cyoY",
+      "passage": "city experiences cool and dry weather, with decreasing cloud cover and minimal rainfall. Th"
+    },
+    {
+      "id": 5,
+      "title": "singaporeair.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGhvE9zjMbrnWECrKogvyH47fvMxS7bbp_6OxqsTA1Dd9GNdQ935EOK93pYzxJOrWVOfBmxhDtJKbHy3mTvDcA9kZszhYImE-1TnvsNN62tob9dRIS_8uYu_B_HRqwZ7ZS1Mb3Hn5vqXtQ_UqeOkIYnm7nVYGTGZ0AKsa17OZbjPtz9R_kPWA==",
+      "passage": "aluru has a vibrant coffee culture, with a growing appreciation for specialty coffee and artisanal brewing methods. Ca … city also has a strong connection to Karnataka, India's largest coffee-producing state, with beans often sourced from regions like Chikmagalur and Coorg.\n\nD"
+    },
+    {
+      "id": 6,
+      "title": "ijcrt.org",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGss5loX7Be5MVhBZWG34MgI0IPLSayyrVCAv9KF12Pd8qncYdKH1GNAQmNt7DuvOjC5BzvMjOTrH4uUaX03HvAspeKn52YGBz-4dR4b0d5TAI4yiZQ9YHHz4AIl8G9qBai1514",
+      "passage": "aluru has a vibrant coffee culture, with a growing appreciation for specialty coffee and artisanal brewing methods. Ca … s are popular spots for remote work and social gatherings, reflecting the city's cosmopolitan environment and its status as India's \"coffee capital\". Th"
+    },
+    {
+      "id": 7,
+      "title": "dezertoon.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGaCellgqvpz7ikOFjqokrmUKNt51No9Hx5Aa1o27Ty0k1peTA0si_EOBpGfDSkGyRSpUKVdHT4dX8XOHN5JIJauHJeWP6SYDh6LhK7DVJt1uLVbGt1aBKY9d7CtY6jAWnOorTF75OI8-EA1KSxkXSh",
+      "passage": "aluru has a vibrant coffee culture, with a growing appreciation for specialty coffee and artisanal brewing methods. Ca … s are popular spots for remote work and social gatherings, reflecting the city's cosmopolitan environment and its status as India's \"coffee capital\". Th … city also has a strong connection to Karnataka, India's largest coffee-producing state, with beans often sourced from regions like Chikmagalur and Coorg.\n\nD"
+    },
+    {
+      "id": 8,
+      "title": "timesnownews.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFedq59nrusMisI1XyE3MhUyZm7VjXG1CQDe3S6KhrQpkMWN3LlKlOH_BlJcG3pRFO8ajWGrWmAi_7CsdPaW0J-jdLuXkzHX63RTMfthWfTnSmnDLW7188l5B1Uqc4ut5mo_Dhb2q_b1lALzXxT1zXHODk2xwn3TqZhbXqdVqrRbGrOyo3yWnyh7PdZoF9-PonS-BKpQGHKf2TgSAhwqVrA_VZAVvLo4fIV6l8764JSW6NCa6WbJ2Q=",
+      "passage": "ng the monsoon season, which extends into early November, Bengaluru sees a rise in demand for comforting street foods and warm beverages. Po … lar monsoon snacks include masala puri, dosas, momos, mirch bajji, and kathi rolls. Th"
+    },
+    {
+      "id": 9,
+      "title": "theleela.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF8VB9lkxxDISa23tVAGdXgVbJPanyO6I8sXwRvt5HzCabk3zrjqCgcbmR87sWyuXREPhX1Z3dmQTxeDWc-QMQ6xSX5Ky0S2jf9kRqvmXagf_lfvqpH0ncy3xHm8T4gAzSblokvQhBIx5IYhnSTHjdZN4XXDRMQv50jhBlznsPzNE3fZBvrHoCYkUrKKbLSg11nVDZ3y5w=",
+      "passage": "ng the monsoon season, which extends into early November, Bengaluru sees a rise in demand for comforting street foods and warm beverages. Po … e are often enjoyed with hot filter coffee or chai.\n\nM"
+    },
+    {
+      "id": 10,
+      "title": "indiatimes.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEroysng5k2BOIPhFuuHGIWl6hvTfsJnplThKWPeimQ2dLfDT22w2X0sDI4Brt9LyGii84kZnYrH6bTKTRRbsALc2hee8mfJYK6WGlsbD_Eu98s7gKVYVe3PbsLuuqW7XI6mfUIGAVbuntfTORffXM47eB7N5cU95HnYJ4S3fIikACtcZ81V0YNVqMt4Ak9kWqGurMMa70tVcn24R9kL4YR3pRSflQn0VgAZ2UZ9x4yvl3fzch9ckW0oBeITIS20tQ7JLs98PJ7Y_kA2fd-DQ3OpvU=",
+      "passage": "ng the monsoon season, which extends into early November, Bengaluru sees a rise in demand for comforting street foods and warm beverages. Po … lar monsoon snacks include masala puri, dosas, momos, mirch bajji, and kathi rolls. Th … e are often enjoyed with hot filter coffee or chai.\n\nM"
+    },
+    {
+      "id": 11,
+      "title": "indulgexpress.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHSCHJFGMZKMSTjWk3GT-frgZO5VoVhawiqnUbgViCWnrcFcwi7fMGY-hsQZgjLXlpfnza2DME7ASRCc7bXqGZohhwfxVbUjCDQVa9qgJ1BQRKHtnssiiRy9hp3zfgCX45fhrAjsEhBEAvsx1PGrEvDQgKmEqKjsygk3d7oGYf2-rDL2CrfzXWsTGhy459zVIzBGlDqak0jw5VtomZHE5-Mrt2YzkFeenvN4Il_cmZSIM84r3VN02Zw11iy7695AqsdmGHYq0BT_XYEDg==",
+      "passage": "ng the monsoon season, which extends into early November, Bengaluru sees a rise in demand for comforting street foods and warm beverages. Po"
+    },
+    {
+      "id": 12,
+      "title": "thebalconystories.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHACCYpyPJRvZd1mjKUwLdlIXmfWK--jNQd523mF6mXTQrK-syJZybB3JzrchdEyl79PRuuBJYgXakY61bo9VS-cCnuR-GWJ2fOo9SFKSaYC7ikN0MMn1PQK8L6-S56ej2Gy6kzKeSjPYt7Mnj70zl1VR32g0ZW3_lBkHhhSq_qXw6QysbRYoFeLLUNW2KoQlGBpj8J-3CC-s4-Ysq6_8LJOg==",
+      "passage": "ng the monsoon season, which extends into early November, Bengaluru sees a rise in demand for comforting street foods and warm beverages. Po"
+    },
+    {
+      "id": 13,
+      "title": "pranachai.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFuUt5YdJcnH35XN6r2MMhBNnwqz0hkQnudbn11iQ7soS6giP5my0_QQTYl7ztLEwaGvEsL1H2mD6uJbupoRhYgrNgeo_X3VV52lWUjMI8w8W8EKJT1wDJKtG85h-QaBN8Yy1mXOLUJyTBLQ7TTO3B4gPWY-trRVrtMWo3M9mJqfdWA0ccVIAvytrxuCJot",
+      "passage": "la Chai itself is known for its health benefits, including being rich in antioxidants, supporting digestion, and having anti-inflammatory properties. It … lso contains less caffeine than coffee, offering a gentler energy boost. Co"
+    },
+    {
+      "id": 14,
+      "title": "mistymountain.in",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGXyAvXSMdDIzcHTRAU1kIxsR6y8HOvwnSzdakX_zvP_xIaG9WRmRSOwFXsYudYTYnM4jN56ZhEZ8U3QWVUiEzhxP6gDyAu5mw97s-Xjl0fCIR4kasaHEHYP28W7ZipktYFje74_lkJdV8qe8tbPtTn7-FfAowUDuHL",
+      "passage": "la Chai itself is known for its health benefits, including being rich in antioxidants, supporting digestion, and having anti-inflammatory properties. It"
+    },
+    {
+      "id": 15,
+      "title": "thechairoom.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFVxvtJjtTA-UZhVlShQlaa_wbQuEUf3BvSxQfF-zr7mczH9Otodd9UWs60jD7hH9bUaRPHRmlrnAgQSQptyXpZ0EvtLlfE_l8s6fbOQP_BPQ1uNEDdgxkbASrENUXDT75K0hzMA44PobmIOiqOIIYpHog0ECRugKn_8pGdEejfkm5Aj_cEuA==",
+      "passage": "la Chai itself is known for its health benefits, including being rich in antioxidants, supporting digestion, and having anti-inflammatory properties. It … lso contains less caffeine than coffee, offering a gentler energy boost. Co"
+    },
+    {
+      "id": 16,
+      "title": "mypurva.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF3ENRsqIN6N2VDve9qCqc6Dokx-KcyyFkUxq5ZJbjvn3DOB6fPZcvntytxRYUefsI2RjZdNOj6Jy97qbITM_-S5mtaBHK3pwvELfookeDFsBIF8TWDX2tDmsXR_nb4al8cRcFkjxgFepjv4BCRGC0I8ddSmYdhtg==",
+      "passage": "la Chai itself is known for its health benefits, including being rich in antioxidants, supporting digestion, and having anti-inflammatory properties. It … lso contains less caffeine than coffee, offering a gentler energy boost. Co"
+    },
+    {
+      "id": 17,
+      "title": "thechaiwalah.in",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGU5Fe6LWq_R_KNmWRZAt2IsKvyaBsZIPmV5OojczP1_9L2_ByW0hFMrJtNQxLiLndLWxvFsNiRImvYLJ6gmvjAKGFeMVDxl-inX01bP43EvXR6lmkWtJD2ssz3E-L0KcaQsb6RIPWKBMenPP83Kmszhj5k00WK",
+      "passage": "la Chai itself is known for its health benefits, including being rich in antioxidants, supporting digestion, and having anti-inflammatory properties. It"
+    },
+    {
+      "id": 18,
+      "title": "diasporaco.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGGkc19tr_sdgmdjYQ2RQ6-5f72hUXGpeE6LiQcYgBF_aVuP1IN5op2MpqjLHQetG56fB-FKaD4YxafOPlT9EvZBaVAK7Z_PDGwcrL-3eFAHw-CSUlS6gXVLQ7D9aLla0crAKWbj56LPhXrOv_g2EB-LhUvwvneISIlU82Smg==",
+      "passage": "brew methods are also gaining popularity for teas, offering a refreshing way to enjoy the flavors.\n\nS"
+    },
+    {
+      "id": 19,
+      "title": "solo-chai.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEkFRjKcEK_EZ8WLVkfVIEOWdP-6LKmsQf-UmDvSD0F-C7zYJ-mThV7JmkiXauOJ1xG1UGnuIX4JEEbXWPqdoeg3Sh3UuA_V_S11PPuHJEyBoAH2kYhzgp2r9aaN8E53Qn95_My-WNqokjf_tANL0-sJPhna0orqSGz0UrZiUi6EFBpxEQXrmUXbd5Mczee",
+      "passage": "brew methods are also gaining popularity for teas, offering a refreshing way to enjoy the flavors.\n\nS"
+    },
+    {
+      "id": 20,
+      "title": "theamisraelchai.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEKfGpIHReH6ULMQLhAFukVVkPkSxO_YWyDsnEN49RbHoHY7vSW6d102s6ljxMgUYJZHqFnhufWblesQrnl6cnFhAv66I5OYhGkkJvM8JKiSrIwcAptv72SdojbeJ_0jr6HHICvsO2ejU1XB__kvT3UfQcrshVYvMi2E1M=",
+      "passage": "brew methods are also gaining popularity for teas, offering a refreshing way to enjoy the flavors.\n\nS"
+    },
+    {
+      "id": 21,
+      "title": "eventsaroundme.in",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE5JG81q6buNoGcCkolFi6ADpdGlTAYwHnWHcwBP5EpoPbpSDfrFarHNnRGzIsOj4-KC66WxHsLbt11fTxL8YebueW64DZcRP7Wdh2MEFRo3fHCWUuWnKi-vFsBiXm4VpwQvkCnUqIwB0z_pLfUekOXDBo8x9R5jKvos-wPe94-",
+      "passage": "ral events are scheduled in Indiranagar, Bengaluru, in November 2026, including music performances at The Humming Tree and a flea market at the Indiranagar Club. Th"
+    },
+    {
+      "id": 22,
+      "title": "eventsaroundme.in",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEE21E5xUvSupsnwFR5vNJ3ziKylR3F0bXsb4HcFLfqHmj_YOWSSpNf2SYPke2_ImIFSPlsU_nu0ymTCn33R1K9IwvGXnlXRuycmVg1F9iRhuNEZcou2RMcku-8uZWR4oQP084pv6rB0Pfbd7Un-pON2Ndw2qKAUDvnUshINKSC",
+      "passage": "ral events are scheduled in Indiranagar, Bengaluru, in November 2026, including music performances at The Humming Tree and a flea market at the Indiranagar Club. Th"
+    }
+  ]
+}

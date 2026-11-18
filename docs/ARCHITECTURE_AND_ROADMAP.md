@@ -25,6 +25,8 @@ build-social/
 │   │   │   ├── types.py          # Message, ToolSpec, ToolCall, LLMResponse, Usage
 │   │   │   ├── base.py           # LLMClient interface
 │   │   │   ├── sarvam.py         # adapter: our types <-> Sarvam API (one adapter per provider)
+│   │   │   ├── gemini.py         # adapter: our types <-> Gemini Interactions API (+ Google Search)
+│   │   │   ├── _http.py          # shared: HTTP POST with retries
 │   │   │   └── registry.py       # reads models.yaml → builds the right client for a model alias
 │   │   ├── agent.py        # Agent definition + run loop
 │   │   ├── tools.py        # Python function → tool the LLM can call
@@ -50,7 +52,7 @@ The `harness/` vs `agents/` split keeps the harness reusable for future agent su
   - outgoing: our `Message` / `ToolSpec` → provider request JSON
   - incoming: provider response → our `LLMResponse` / `Usage`
 - `base.py` defines the `LLMClient` contract every adapter implements: `complete(messages, tools, ...) -> LLMResponse`.
-- **One adapter per provider, written for that provider's real behaviour** (not a "generic" adapter guessing at many). Now: `sarvam.py` only. Later, as needed: `openai_responses.py`, `anthropic.py`, `gemini.py`, etc. Different models from the same provider share one adapter; their differences are settings in `models.yaml`.
+- **One adapter per provider, written for that provider's real behaviour** (not a "generic" adapter guessing at many). Now: `sarvam.py` (writing agents) and `gemini.py` (research, with Google Search). Later, as needed: `openai_responses.py`, `anthropic.py`, etc. Shared HTTP retry logic lives in `_http.py`. Different models from the same provider share one adapter; their differences are settings in `models.yaml`.
 - If two adapters end up sharing a lot of code (e.g. two OpenAI-format providers), extract the shared helpers into a common module *then*, once the overlap is visible, not before.
 - **Usage normalization.** Adapters convert token counts into non-overlapping buckets (`input_tokens`, `cache_read_tokens`, `cache_write_tokens`, `output_tokens`, with `reasoning_tokens` as a subset of output). The provider's original usage is kept in `raw_usage` for auditing.
 - Provider quirks live only inside the adapter. Only Sarvam's are handled for now (e.g. it rejects `tool_choice` without `tools`).
@@ -63,38 +65,76 @@ The `harness/` vs `agents/` split keeps the harness reusable for future agent su
 - Each model in `models.yaml` has a `provider` field (e.g. `sarvam`) telling the registry which adapter to build.
 - **Later:** a passthrough field on `Message` for provider reasoning state (needed by some native adapters for multi-turn tool use).
 
-## 5. Agent pipeline (v1)
+## 5. Agent pipeline (prototype 1, built)
 
 ```
-BrandProfile ─► Research Agent (web_search, fetch_url) ─► ResearchReport
-             ─► Strategy Agent ─► ContentPlan
-             ─► Content Agent  ─► PostDraft
-             ─► Human approval (approve / edit / reject + feedback → revise)
-             ─► saved draft
+BrandProfile (+ products) + PostBrief
+  ─► MARKET research (industry + market + week; SHARED, cached weekly)  ┐ Gemini + Google Search,
+  ─► TOPIC research  (this brief; PRIVATE per brand, cached 7 days)     ┘ only on a cache miss
+       code merges: numbered sources, findings tagged [category]/[market]/[brand]
+  ─► Strategy  ─► ContentPlan (rules_check, angle, key message, finding NUMBERS, CTA, brief concerns)
+  ─► Content   ─► PostDraft   (platform rules + banned phrases checked in code)
+  ─► Reviewer  ─► Review      (every issue quotes the draft; quotes verified in code)
+       issues? ─► Content revises once ─► Reviewer again (open issues are shown, not hidden)
+  ─► Human: approve / revise with feedback / save for later / quit ─► output/<brand>/*.md + .json
 ```
+
+Models (all cheap, set in `models.yaml`): research `gemini-3.5-flash-lite`; strategy and content
+`sarvam-105b`; reviewer `deepseekv4.1-flash-1017` via Sarvam (a different model family from the writer).
+A typical run costs ~₹0.12–0.19 on Sarvam, plus ~₹0.6 of Gemini only when research isn't cached.
 
 Later agents: Creative, Publishing, Analytics.
 
 ### Design rules
 1. Every agent has typed input and output (Pydantic). Agents never talk to each other directly.
 2. Pipeline order is plain code, not LLM-decided: predictable, debuggable, cheap.
-3. The harness enforces schema validation with retries, a max-steps limit, and per-run token/cost limits.
-4. Every run writes a trace: inputs, LLM calls, tool calls, outputs, tokens, cost.
-5. Rejection feedback is fed back to the Content agent for revision (CLI first, a UI approve button later).
-6. Deterministic Python for anything that must be exact (API calls, calculations); LLMs for reasoning and writing.
+3. The harness enforces schema validation with retries and a per-agent output token cap.
+4. Every run writes a trace: inputs, LLM calls (with HTTP retries), outputs, tokens, cost. `buildsocial spend` totals it.
+5. Models refer to facts and sources BY NUMBER; code copies the exact text forward and rejects numbers that don't exist.
+6. Claims about the brand's own products come only from `BrandProfile.products`; category facts are never product facts.
+7. Brand rules override the plan and the wording of facts.
+8. Deterministic Python for anything that must be exact; LLMs for reasoning and writing.
 
 ## 6. Roadmap
 
 - [x] Step 0: Clean repo structure
 - [x] Step 1: LLM layer (`types`, `base`, `sarvam`, `registry` + `models.yaml`) + smoke test (`uv run python -m buildsocial.harness.llm`)
-- [ ] Step 2: Content agent with no tools: BrandProfile → structured PostDraft, via CLI
-- [ ] Step 3: Tracing: tokens, cost, step log per run
-- [ ] Step 4: Tools + agent loop: Research agent with web search
-- [ ] Step 5: Pipeline: Research → Strategy → Content
-- [ ] Step 6: Human approval in CLI (approve / edit / reject with feedback)
-- [ ] Step 7: Evals: example brands + output quality checks
-- [ ] Step 8: Decide: keep own harness vs adopt LangGraph; then wrap in FastAPI
+- [x] Step 2: Content agent: BrandProfile → structured PostDraft (`uv run buildsocial content ...`). Reasoning off by default
+- [x] Step 2f: Skills files per platform and format, loaded by code from the brief
+- [x] Step 3: Tracing (`traces/`, `uv run buildsocial trace`)
+- [x] Step 4 (changed): Research via Gemini's built-in Google Search (no own tool loop yet); two layers (shared market, private topic) with caching
+- [x] Step 5: Pipeline: Research → Strategy → Content → Reviewer (`uv run buildsocial run ...`)
+- [x] Step 6: Human approval in the CLI; posts saved to `output/`
+- [ ] Step 7: Evals: fixed briefs for the 3 test brands, scored by code checks + an LLM judge, to compare prompt/model changes
+- [ ] Step 8: Own tool loop (function tools, MCP) when an agent needs tools beyond built-in search
+- [ ] Step 9: Decide: keep own harness vs adopt LangGraph; then wrap in FastAPI
 
-## 7. Later (not now)
+## 7. Content formats and visuals (planned, not built)
+
+**Long-term goal:** produce any kind of social media content: text posts, graphics, carousels, video, animation, audio.
+
+**Two stages for every format:**
+- *What to say*: agents produce a structured **creative spec** (today's `PostDraft` is the spec for a text post).
+- *How it looks or sounds*: a production step turns the spec into files (assets).
+
+**Scope now:** text posts, then graphics for text content (quote cards, offer cards, carousels).
+**Out of scope for now:** image generation, voice, video. Sarvam has no image or video generation; it does offer TTS (Bulbul), STT (Saaras), translation, dubbing and image-input models.
+
+**Graphics approach (code-based design):**
+- A Design agent writes HTML/CSS for each graphic, constrained by a **brand kit** in the brand profile (colours, fonts, logo, style notes), with example layouts supplied as skills files.
+- A headless browser (Playwright) renders it to PNG, with scripts and network access disabled.
+- Same validate-and-retry loop as text: code checks (overflow, size, contrast, brand colours/fonts), then a vision-model check; problems go back to the agent.
+- Fallback: a fixed template if the design still fails after retries.
+- Optional later: a Canva renderer for users with their own Canva brand templates (Connect API; autofill may require Canva Enterprise; each user connects their own account).
+
+**Code-based creative tools in general:** the same pattern (agent writes code → a renderer produces media → checks → retry) covers other tools later, e.g. Manim for animated explainer videos, SVG, Remotion for motion graphics. They plug in as tools, either our own Python tools or MCP servers. Tools that execute LLM-written programs (Manim runs Python) must run in a sandbox (an isolated container with no network or secrets).
+
+**Skills files (Step 2f):** per-platform and per-format know-how in Markdown (`buildsocial/skills/platforms/instagram.md`, `skills/formats/carousel.md`), loaded by code based on the brief so each call carries only the guidance it needs.
+
+**Other capabilities use the same adapter pattern as `llm/`,** each added only when an agent needs it: `search/` (Step 4), later `images/`, `speech/`, `video/`. The tools layer (Step 4) should accept both Python tools and tools from MCP servers.
+
+**Known quality gaps (from Step 2 runs):** the model invents plausible facts (addresses, durations) and can break brand rules subtly (health claims). Code rules can't catch these; they need the human approval step (Step 6) and an LLM judge in evals (Step 7).
+
+## 8. Later (not now)
 
 FastAPI service, Postgres (drafts, runs, brands), background jobs, React UI, OAuth social connections and publishing, multi-tenancy, Docker, deployment.

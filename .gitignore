@@ -15,6 +15,9 @@ env/
 # Agent run traces (may contain prompts/outputs)
 traces/
 
+# Research cache (local data; topic research can reveal a brand's private plans)
+research_cache/
+
 # Node / React
 node_modules/
 dist/
@@ -24,3 +27,9 @@ npm-debug.log*
 .vscode/
 .idea/
 .DS_Store
+
+# Generated posts (local working data)
+output/
+
+# Eval results (contain generated posts for real test brands; keep local)
+evals/results/

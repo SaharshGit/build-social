@@ -1,0 +1,43 @@
+# TEST FIXTURE for local development only. Not affiliated with or endorsed by Zerodha.
+# Built from public information (Wikipedia and review sites, checked 2026-11-17);
+# the dos and don'ts are OUR test assumptions (modelled on investment-advertising
+# caution), not the company's real guidelines. Generated posts must not be published.
+name: Zerodha
+industry: online stock broking and investing
+market: India
+description: >
+  Bengaluru-based discount stockbroker founded in 2010. Offers trading and investing
+  through its own platforms: Kite (trading, web and mobile), Coin (direct mutual funds)
+  and Console (reports), plus Varsity, a free stock market education platform.
+audience: >
+  Indian retail investors and traders aged 22-45, from first-time investors to active
+  traders, plus fintech and finance professionals who follow the company on LinkedIn.
+voice: Plain-spoken, honest and educational. Explains things simply, no hype, no jargon without explanation.
+language: English
+content_pillars:
+  - Investor education (how markets and products work)
+  - Building in public (product, technology, culture)
+  - Responsible investing and risk awareness
+dos:
+  - Explain concepts simply, with a concrete example
+  - Encourage learning and long-term thinking
+  - Point to Varsity for learning more
+donts:
+  - Never give investment advice or recommend specific stocks, funds or trades
+  - Never promise or imply returns, profits or "easy money"
+  - No urgency or FOMO ("don't miss out", "act now")
+  - Don't mention or criticise competitors
+  - Don't invent offers, prices, fees or features
+example_posts:
+  - "Most losses in trading don't come from bad picks. They come from position sizes that were too big for the account. A short thread on risk per trade."
+  - "We've never run ads for Kite. Here's how word of mouth works when you build for the user first."
+products:
+  - name: Varsity
+    description: Free stock market education platform (modules and app).
+    approved_claims:
+      - Free to use
+      - Open to everyone, not just Zerodha clients
+  - name: Kite
+    description: Zerodha's trading platform, on web and mobile.
+    approved_claims:
+      - Available on web and mobile

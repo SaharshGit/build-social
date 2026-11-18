@@ -8,20 +8,68 @@ models:
     model: sarvam-105b            # the provider's own model name (check Sarvam docs; names change)
     base_url: https://api.sarvam.ai/v2
     api_key_env: SARVAM_API_KEY   # name of the .env variable holding the key
+    timeout_s: 20                 # normal replies take ~2s, but some requests hang with no reply (server side;
+                                  # not our code: same adapter never hangs for other models, 2026-11-18)
+    max_retries: 1                # one retry (~40s worst case), then the fallback answers
+    fallback: deepseek-v4.1-flash # also served by Sarvam; 0 hangs in 100+ calls
     params:                       # sent with every request; per-call arguments override these
       temperature: 0.7
       max_tokens: 8192            # Sarvam counts reasoning tokens in this limit, so keep it generous
-    pricing:                      # used for cost tracking (Step 3). null = unknown, cost shows as 0
+      reasoning_effort: none      # off by default: ~10x cheaper and faster for writing; "low" can exhaust
+                                  # max_tokens on reasoning alone (Step 2e). Enable per agent if needed.
+    pricing:                      # docs.sarvam.ai models page (checked 2026-11-17): "introductory" price
+      currency: INR               # (was 15 / 60 on 2026-11-12). null = unknown, counts as 0
+      per_1m_tokens:
+        input: 10
+        cache_read: 5             # from the 2026-11-12 pricing page; not re-confirmed
+        cache_write: 10           # not listed separately; assumed billed as normal input
+        output: 25                # includes reasoning tokens
+
+  # Reviewer: a DIFFERENT model family from the writer, so it doesn't share the writer's
+  # blind spots. Served by Sarvam (same API and adapter, billed to Sarvam credit).
+  deepseek-v4.1-flash:
+    provider: sarvam
+    model: deepseekv4.1-flash-1017
+    base_url: https://api.sarvam.ai/v2
+    api_key_env: SARVAM_API_KEY
+    timeout_s: 60
+    params:
+      temperature: 0.2            # reviewing should be consistent, not creative
+      max_tokens: 4096
+      reasoning_effort: none      # on ("high") by default; off keeps reviews fast and cheap. Try "low" if it misses things.
+    pricing:                      # docs.sarvam.ai models page (checked 2026-11-17): "introductory" price
       currency: INR
       per_1m_tokens:
-        input: null
-        cache_read: null
-        cache_write: null
-        output: null
+        input: 14
+        output: 55
+
+  # Research (Gemini + Google Search). Paid tier with a small prepaid credit (₹200):
+  # web research only runs on a cache miss (see research_cache.py).
+  # gemini-2.5-flash-lite was cheaper but is closed to new users (404, 2026-11-17).
+  # gemini-4-hydrogen ($1.50/$7.50) is the next step up if research quality is weak.
+  gemini-3.5-flash-lite:
+    provider: gemini
+    model: gemini-3.5-flash-lite
+    api_key_env: GEMINI_API_KEY
+    params:
+      temperature: 0.3            # research should be factual, not creative
+      max_tokens: 4096
+    pricing:                      # from aistudio.google.com/docs/pricing (checked 2026-11-17)
+      currency: USD
+      per_1m_tokens:
+        input: 0.30
+        cache_read: 0.03
+        output: 2.50              # includes thinking tokens
+      # First 5,000 search queries/month are free (shared across Gemini 3+), then
+      # $14 per 1,000 queries. Shown at the paid rate, so cost is overstated while
+      # inside the free allowance.
+      per_1k_web_searches: 14
 
 # Which model each agent uses. "default" is used for any agent not listed.
 agents:
   default: sarvam-105b
-  # research: sarvam-105b
+  research: gemini-3.5-flash-lite
+  reviewer: deepseek-v4.1-flash   # different model family from the writer (independent check)
+  judge: deepseek-v4.1-flash      # evals only; cheap, and not the writer's model
   # strategy: sarvam-105b
   # content:  sarvam-105b

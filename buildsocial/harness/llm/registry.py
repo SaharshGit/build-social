@@ -20,7 +20,10 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, model_validator
 
 from buildsocial.harness.llm.base import LLMClient
+from buildsocial.harness.llm.fallback import FallbackClient
+from buildsocial.harness.llm.gemini import GeminiClient
 from buildsocial.harness.llm.sarvam import SarvamClient
+from buildsocial.harness.llm.types import Usage
 
 # ----------------------------------------------------------------------
 # Config schema: what a valid models.yaml looks like
@@ -39,15 +42,35 @@ class TokenPrices(BaseModel):
 class Pricing(BaseModel):
     currency: str = "USD"
     per_1m_tokens: TokenPrices = TokenPrices()
+    per_1k_web_searches: float | None = None  # built-in search tools bill per query
+
+    def cost(self, usage: Usage) -> float:
+        """Cost of the given usage in `currency`. Unknown prices count as 0."""
+        p = self.per_1m_tokens
+        buckets = [
+            (usage.input_tokens, p.input),
+            (usage.cache_read_tokens, p.cache_read),
+            (usage.cache_write_tokens, p.cache_write),
+            (usage.output_tokens, p.output),  # reasoning is already inside output_tokens
+        ]
+        tokens_cost = sum(tokens * (price or 0) for tokens, price in buckets) / 1_000_000
+        search_cost = usage.web_searches * (self.per_1k_web_searches or 0) / 1_000
+        return tokens_cost + search_cost
 
 
 class ModelConfig(BaseModel):
-    provider: Literal["sarvam"]  # extend as adapters are added
+    provider: Literal["sarvam", "gemini"]  # extend as adapters are added
     model: str
     base_url: str | None = None
     api_key_env: str
     params: dict[str, Any] = {}
     pricing: Pricing = Pricing()
+    # Seconds to wait for one HTTP response before treating it as hung and retrying.
+    timeout_s: float = 120.0
+    # HTTP retries on transient failures (timeouts, 5xx, 429) before giving up.
+    max_retries: int = 3
+    # Another model alias to ask if this one still fails after its retries (see fallback.py).
+    fallback: str | None = None
 
 
 class ModelsFile(BaseModel):
@@ -61,6 +84,12 @@ class ModelsFile(BaseModel):
         for agent, alias in self.agents.items():
             if alias not in self.models:
                 raise ValueError(f"agent '{agent}' uses unknown model '{alias}'")
+        for alias, cfg in self.models.items():
+            if cfg.fallback is not None:
+                if cfg.fallback not in self.models:
+                    raise ValueError(f"model '{alias}' has unknown fallback '{cfg.fallback}'")
+                if cfg.fallback == alias or self.models[cfg.fallback].fallback is not None:
+                    raise ValueError(f"model '{alias}': a fallback can't be itself or have its own fallback")
         return self
 
 
@@ -69,15 +98,19 @@ class ModelsFile(BaseModel):
 # ----------------------------------------------------------------------
 
 
-def _build_sarvam(cfg: ModelConfig, api_key: str) -> LLMClient:
-    kwargs: dict[str, Any] = {"api_key": api_key, "model": cfg.model, "default_params": cfg.params}
+def _client_kwargs(cfg: ModelConfig, api_key: str) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {
+        "api_key": api_key, "model": cfg.model, "default_params": cfg.params, "timeout": cfg.timeout_s,
+        "max_retries": cfg.max_retries,
+    }
     if cfg.base_url:
         kwargs["base_url"] = cfg.base_url
-    return SarvamClient(**kwargs)
+    return kwargs
 
 
 ADAPTERS: dict[str, Callable[[ModelConfig, str], LLMClient]] = {
-    "sarvam": _build_sarvam,
+    "sarvam": lambda cfg, key: SarvamClient(**_client_kwargs(cfg, key)),
+    "gemini": lambda cfg, key: GeminiClient(**_client_kwargs(cfg, key)),
 }
 
 # ----------------------------------------------------------------------
@@ -101,20 +134,32 @@ def load_config() -> ModelsFile:
 
 
 def resolve_model(name: str = "default") -> tuple[str, ModelConfig]:
-    """Agent name or model alias -> (alias, config)."""
+    """Agent name or model alias -> (alias, config).
+
+    Lookup order: agent listed under `agents:` -> model alias under `models:`
+    -> otherwise an agent that isn't listed, so it gets the default model.
+    """
     cfg = load_config()
-    alias = cfg.agents.get(name, name)  # agent name? map to its alias. Otherwise treat as alias.
-    if alias not in cfg.models:
-        raise KeyError(
-            f"'{name}' is neither an agent nor a model alias. "
-            f"Agents: {sorted(cfg.agents)}. Models: {sorted(cfg.models)}"
-        )
+    if name in cfg.agents:
+        alias = cfg.agents[name]
+    elif name in cfg.models:
+        alias = name
+    else:
+        alias = cfg.agents["default"]
     return alias, cfg.models[alias]
 
 
 def get_client(name: str = "default") -> LLMClient:
     """Build a ready-to-use client for an agent name or model alias."""
     alias, model_cfg = resolve_model(name)
+    client = _build(alias, model_cfg)
+    if model_cfg.fallback:
+        fallback_cfg = load_config().models[model_cfg.fallback]
+        client = FallbackClient(client, _build(model_cfg.fallback, fallback_cfg), alias, model_cfg.fallback)
+    return client
+
+
+def _build(alias: str, model_cfg: ModelConfig) -> LLMClient:
     api_key = os.environ.get(model_cfg.api_key_env)
     if not api_key:
         raise RuntimeError(f"model '{alias}' needs {model_cfg.api_key_env} set in .env")

@@ -20,5 +20,25 @@
 
 ## 4. Current status
 - Done: Step 0 (repo structure cleaned), Step 1 (LLM layer + real Sarvam call working).
-- Next: Step 2 (Content agent: BrandProfile → structured PostDraft, via CLI).
-- Open: decide `reasoning_effort` per agent (sarvam-105b spends ~99% of output tokens reasoning by default); fill Sarvam prices in models.yaml.
+- Done: Step 2 (Content agent via CLI, platform rules in code, cost reporting, reasoning off by default).
+- Done: Step 2f (skills files per platform and format, loaded by code from the brief).
+- Done: Step 3 (tracing to `traces/`, viewer: `uv run buildsocial trace`).
+- Done: Gemini adapter (`harness/llm/gemini.py`, Interactions API, Google Search built in); research model chosen in models.yaml.
+- Done: Two-layer research (shared market + private topic) with caching in `research_cache/`.
+- Done: Strategy, Content, Reviewer (+1 automatic revision), human approval loop, posts saved to `output/`.
+- Done: Product facts in brand profiles; findings tagged by scope; `buildsocial spend` for recorded cost.
+- Models: research `gemini-3.5-flash-lite` (paid, small credit: only on cache miss); strategy/content `sarvam-105b`
+  (20s timeout: about half its calls hang, retries answer fast); reviewer `deepseekv4.1-flash-1017` via Sarvam.
+- Test brands (local fixtures only): `examples/brew-house.yaml` (fictional), `mamaearth.yaml`, `zerodha.yaml`.
+- Done: evals (`buildsocial eval`, `eval-compare`): 6 cases, frozen research, code checks + DeepSeek judge.
+  Results 2026-11-18: baseline 3/6 -> 6/6 after product facts + must-name-product check (repeat run also 6/6).
+  Average scores move ~0.3 between identical runs: don't trust smaller differences from a single run.
+  2 revision rounds: fewer open issues (13 -> 7) but worse safety (3/6); default stays 1 (`--max-revisions`).
+- Done: fallback model (sarvam-105b -> deepseekv4.1-flash-1017 on transient failures).
+- Done: storage layer (`harness/storage.py`): ALL runtime data (traces, research cache, posts, eval results)
+  goes through Storage: local (default) or a GCS bucket (`BUILDSOCIAL_STORAGE=gcs`). Project files stay files.
+- Done: runtime data on GCS bucket `gs://build-social` (BUILDSOCIAL_STORAGE=gcs; key as one-line GCS_CREDENTIALS_JSON
+  in .env, service account with Storage Object Admin on that bucket only). Local research cache, posts and eval
+  results copied up; old local traces still only on the laptop.
+- Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
+- Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.
