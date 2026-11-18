@@ -8,8 +8,10 @@ models:
     model: sarvam-105b            # the provider's own model name (check Sarvam docs; names change)
     base_url: https://api.sarvam.ai/v2
     api_key_env: SARVAM_API_KEY   # name of the .env variable holding the key
-    timeout_s: 20                 # normal replies take 1.5-3s, but ~half of calls hung (11/22, 2026-11-17);
-                                  # a hung request is retried and then answers in ~2s, so give up early
+    timeout_s: 20                 # normal replies take ~2s, but some requests hang with no reply (server side;
+                                  # not our code: same adapter never hangs for other models, 2026-11-18)
+    max_retries: 1                # one retry (~40s worst case), then the fallback answers
+    fallback: deepseek-v4.1-flash # also served by Sarvam; 0 hangs in 100+ calls
     params:                       # sent with every request; per-call arguments override these
       temperature: 0.7
       max_tokens: 8192            # Sarvam counts reasoning tokens in this limit, so keep it generous
