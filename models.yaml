@@ -68,5 +68,6 @@ agents:
   default: sarvam-105b
   research: gemini-3.5-flash-lite
   reviewer: deepseek-v4.1-flash   # different model family from the writer (independent check)
+  judge: deepseek-v4.1-flash      # evals only; cheap, and not the writer's model
   # strategy: sarvam-105b
   # content:  sarvam-105b

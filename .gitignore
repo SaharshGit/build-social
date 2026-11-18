@@ -30,3 +30,6 @@ npm-debug.log*
 
 # Generated posts (local working data)
 output/
+
+# Eval results (contain generated posts for real test brands; keep local)
+evals/results/

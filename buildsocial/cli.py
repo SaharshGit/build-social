@@ -37,7 +37,7 @@ from buildsocial.harness.trace import (
     read_trace,
     summarize_spend,
 )
-from buildsocial import output, research_cache
+from buildsocial import evals, output, research_cache
 from buildsocial.output import save_post
 from buildsocial.pipeline import (
     PipelineResult,
@@ -92,6 +92,16 @@ def main(argv: list[str] | None = None) -> int:
     trace.add_argument("file", nargs="?", type=Path, help="trace file (default: the most recent in traces/)")
     trace.add_argument("--full", action="store_true", help="show complete prompts and the run's input")
 
+    ev = commands.add_parser("eval", help="run the eval cases and score them (frozen research, no Gemini cost)")
+    ev.add_argument("--cases", type=Path, default=evals.DEFAULT_CASES)
+    ev.add_argument("--only", nargs="+", help="run only these case ids")
+    ev.add_argument("--label", default="run", help="name for this run, e.g. baseline or new-reviewer-prompt")
+    ev.add_argument("--concurrency", type=int, default=3)
+
+    cmp = commands.add_parser("eval-compare", help="compare two saved eval runs")
+    cmp.add_argument("a", type=Path)
+    cmp.add_argument("b", type=Path)
+
     spend = commands.add_parser("spend", help="total recorded LLM spend, from trace files")
     spend.add_argument("--since", help="only count runs on or after this date (YYYY-MM-DD)")
 
@@ -101,6 +111,11 @@ def main(argv: list[str] | None = None) -> int:
             return show_trace(args)
         if args.command == "spend":
             return show_spend(args)
+        if args.command == "eval":
+            return asyncio.run(run_evals(args))
+        if args.command == "eval-compare":
+            print(evals.compare(args.a, args.b))
+            return 0
         brand, brief = load_brand(args.brand), make_brief(args)
         if args.command == "run":
             return asyncio.run(run_full_pipeline(args, brand, brief))
@@ -338,6 +353,20 @@ def print_plan(plan: ContentPlan, research: ResearchReport) -> None:
         sites = ", ".join(s.title or "?" for i in f.source_ids if (s := research.source(i)))
         print(f"  {n}. {f.fact}  ({sites})")
     print(f"Why:         {plan.rationale}")
+
+
+async def run_evals(args: argparse.Namespace) -> int:
+    cases = evals.load_cases(args.cases, args.only)
+    print(f"Running {len(cases)} eval case(s), {args.concurrency} at a time...", file=sys.stderr)
+    results = await evals.run_eval(
+        cases,
+        concurrency=args.concurrency,
+        tracer_for=lambda case: FileTracer(TRACES_DIR, f"eval_{case.id}"),
+    )
+    print(evals.format_results(results))
+    path = evals.save_results(results, args.label)
+    print(f"\nSaved: {path}", file=sys.stderr)
+    return 0
 
 
 def show_spend(args: argparse.Namespace) -> int:
