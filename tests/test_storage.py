@@ -105,3 +105,10 @@ def test_get_storage_from_env(monkeypatch, tmp_path):
     monkeypatch.setenv("BUILDSOCIAL_STORAGE", "dropbox")
     with pytest.raises(RuntimeError, match="unknown BUILDSOCIAL_STORAGE"):
         storage_module.get_storage()
+
+
+def test_gcs_list_skips_console_folder_placeholders():
+    client = FakeGCSClient()
+    s = GCSStorage("build-social", client=client)
+    client.b.data.update({"research_cache/": "", "research_cache/market/": "", "research_cache/market/m.json": "x"})
+    assert s.list("research_cache/") == ["research_cache/market/m.json"]

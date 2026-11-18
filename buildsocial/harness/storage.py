@@ -151,7 +151,10 @@ class GCSStorage(Storage):
         return self._bucket.blob(_check_key(key)).exists()
 
     def list(self, prefix: str) -> list[str]:
-        return sorted(b.name for b in self._bucket.client.list_blobs(self._bucket, prefix=prefix))
+        # Skip "folder" placeholders (names ending in "/"), which the Cloud console
+        # creates for "Create folder": they aren't files.
+        blobs = self._bucket.client.list_blobs(self._bucket, prefix=prefix)
+        return sorted(b.name for b in blobs if not b.name.endswith("/"))
 
     def delete(self, key: str) -> None:
         from google.api_core.exceptions import NotFound

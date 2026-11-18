@@ -37,6 +37,8 @@
 - Done: fallback model (sarvam-105b -> deepseekv4.1-flash-1017 on transient failures).
 - Done: storage layer (`harness/storage.py`): ALL runtime data (traces, research cache, posts, eval results)
   goes through Storage: local (default) or a GCS bucket (`BUILDSOCIAL_STORAGE=gcs`). Project files stay files.
-- Next: verify GCS against the real `buildsocial` bucket once the service-account key is in .env.
+- Done: runtime data on GCS bucket `gs://build-social` (BUILDSOCIAL_STORAGE=gcs; key as one-line GCS_CREDENTIALS_JSON
+  in .env, service account with Storage Object Admin on that bucket only). Local research cache, posts and eval
+  results copied up; old local traces still only on the laptop.
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.
