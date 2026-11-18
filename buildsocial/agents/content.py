@@ -141,6 +141,13 @@ class ContentAgent(Agent[ContentInput, PostDraft]):
         if cta and cta in _normalize(output.body):
             errors.append("body: must not repeat the call to action; it is added after the body automatically")
 
+        # If the brief is about one of the brand's listed products, the post must name it
+        # (a revision once removed the product entirely while fixing another sentence).
+        for product in input.brand.products:
+            name = product.name.lower()
+            if name in input.brief.topic.lower() and name not in output.full_text.lower():
+                errors.append(f"post: the brief is about '{product.name}', so the post must name it")
+
         for phrase in rules.banned_phrases:
             if phrase in output.full_text.lower():
                 errors.append(f"post: '{phrase}' doesn't exist on {platform}; rewrite that part for {platform}")

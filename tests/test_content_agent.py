@@ -97,3 +97,15 @@ def test_strategy_plans_with_the_platform_skill(brand):
     prompt = StrategyAgent().build_system_prompt(StrategyInput(brand=brand, brief=PostBrief(
         topic="t", platform="linkedin"), research=research))
     assert "## Platform: LinkedIn" in prompt and "no \"link in bio\"" in prompt
+
+
+def test_post_must_name_the_product_the_brief_is_about(brand):
+    brief = PostBrief(topic="new Masala Chai Cold Brew", platform="instagram")
+    inp = ContentInput(brand=brand, brief=brief)
+    no_name = make_draft(hook="Chai, but cold.", body="Our new drink is here.")
+    assert any("must name it" in e for e in ContentAgent().check(no_name, inp))
+    named = make_draft(hook="Chai, but cold.", body="Our new Masala Chai Cold Brew is here.")
+    assert ContentAgent().check(named, inp) == []
+    # A topic that names no listed product has no such requirement.
+    other = ContentInput(brand=brand, brief=PostBrief(topic="monsoon in Bengaluru", platform="instagram"))
+    assert not any("must name it" in e for e in ContentAgent().check(no_name, other))

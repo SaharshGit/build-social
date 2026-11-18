@@ -28,7 +28,7 @@ PLAN = ContentPlan(
 DRAFT = PostDraft(
     platform="instagram",
     hook="Winter mein hair dry ho raha hai?",
-    body="A gentle oil massage before washing helps. Humare formula mein essential oils hain for a pleasant smell.",
+    body="A gentle Onion Hair Oil massage before washing helps. Humare formula mein essential oils hain for a pleasant smell.",
     call_to_action="Comment your favourite winter hair tip!",
     hashtags=["#Mamaearth", "#WinterHairCare", "#OnionHairOil"],
     image_idea="x",
@@ -104,7 +104,7 @@ def test_revision_must_remove_flagged_text():
     agent = ContentAgent()
     unchanged = agent.check(DRAFT, revision_input())
     assert any("was flagged (invented_fact) and is still in the draft" in e for e in unchanged)
-    fixed = DRAFT.model_copy(update={"body": "A gentle oil massage before washing helps."})
+    fixed = DRAFT.model_copy(update={"body": "A gentle Onion Hair Oil massage before washing helps."})
     assert agent.check(fixed, revision_input()) == []
 
 
@@ -113,7 +113,7 @@ def test_revision_must_remove_flagged_text():
 INR = Pricing(currency="INR", per_1m_tokens=TokenPrices(input=15, output=60))
 PLAN_JSON = PLAN.model_dump_json()
 DRAFT_JSON = DRAFT.model_dump_json()
-FIXED_JSON = DRAFT.model_copy(update={"body": "A gentle oil massage before washing helps."}).model_dump_json()
+FIXED_JSON = DRAFT.model_copy(update={"body": "A gentle Onion Hair Oil massage before washing helps."}).model_dump_json()
 
 
 class FakeLLM(LLMClient):
@@ -145,7 +145,7 @@ async def test_flagged_draft_is_revised_once_and_re_reviewed():
     result = await coro
 
     assert [s.agent for s in result.steps] == ["strategy", "content", "reviewer", "revision_1", "review_2"]
-    assert result.draft.body == "A gentle oil massage before washing helps."
+    assert result.draft.body == "A gentle Onion Hair Oil massage before washing helps."
     assert result.review.verdict == "pass"
     assert len(result.history) == 1 and result.history[0][1].issues[0].quote == INVENTED
     # The revision prompt carried the reviewer's issue.
@@ -228,5 +228,5 @@ def test_duplicate_cta_cannot_quote_the_call_to_action_itself():
     agent = ReviewerAgent()
     cta_itself = Review.model_validate_json(review_json([("duplicate_cta", DRAFT.call_to_action)]))
     assert any("is the CALL TO ACTION itself" in e for e in agent.check(cta_itself, review_input()))
-    in_body = Review.model_validate_json(review_json([("duplicate_cta", "A gentle oil massage before washing helps")]))
+    in_body = Review.model_validate_json(review_json([("duplicate_cta", "A gentle Onion Hair Oil massage before washing helps")]))
     assert agent.check(in_body, review_input()) == []

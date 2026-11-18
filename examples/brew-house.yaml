@@ -27,3 +27,12 @@ donts:
 example_posts:
   - "Monday ko thoda gentle banate hain ☕ Our Coorg pour-over is fruity, bright, and basically a hug in a cup. Come say hi — wifi strong, chairs comfy."
   - "Filter coffee, but make it cold. 🧊 Our new Cold Filter Kaapi is here for the Bengaluru afternoons that refuse to cool down."
+# Product facts: the ONLY source for claims about Brew House's own products (fictional brand).
+products:
+  - name: Masala Chai Cold Brew
+    description: New seasonal drink at the Indiranagar cafe.
+    key_ingredients: [black tea, cardamom, cinnamon, ginger]
+    approved_claims:
+      - New on the menu
+      - Masala chai, cold-brewed and served over ice
+      - No added artificial syrups

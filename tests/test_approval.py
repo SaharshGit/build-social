@@ -28,7 +28,7 @@ PLAN = ContentPlan(brief_concerns=[], rationale="r", rules_check="c", angle="a",
 DRAFT = PostDraft(platform="instagram", hook="Winter hair, sorted?", body="Our Onion Hair Oil is toxin-free.",
                   call_to_action="Tell us your winter tip!", hashtags=["#Mamaearth", "#Winter", "#Hair"],
                   image_idea="i", rationale="r")
-SHORTER = DRAFT.model_copy(update={"body": "Toxin-free, made with onion oil and Redensyl."})
+SHORTER = DRAFT.model_copy(update={"body": "Our Onion Hair Oil: toxin-free, made with onion oil and Redensyl."})
 PASS = Review(issues=[], verdict="pass")
 INR = Pricing(currency="INR", per_1m_tokens=TokenPrices(input=10, output=25))
 
