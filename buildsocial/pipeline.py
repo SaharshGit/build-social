@@ -19,7 +19,6 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import date
-from pathlib import Path
 from typing import Any
 
 from buildsocial import research_cache
@@ -36,6 +35,7 @@ from buildsocial.agents.strategy import StrategyAgent, StrategyInput
 from buildsocial.harness.agent import AgentResult
 from buildsocial.harness.llm.base import LLMClient
 from buildsocial.harness.llm.registry import Pricing, get_client, resolve_model
+from buildsocial.harness.storage import Storage
 from buildsocial.harness.trace import Tracer
 from buildsocial.schemas import BrandProfile, ContentPlan, PostBrief, PostDraft, ResearchReport, Review
 
@@ -104,7 +104,7 @@ async def gather_research(
     brief: PostBrief,
     run: StepRunner,
     *,
-    cache_dir: Path | None,
+    cache: Storage | None,
     fresh: bool = False,
     today: date | None = None,
 ) -> tuple[ResearchReport, dict[str, str]]:
@@ -118,28 +118,28 @@ async def gather_research(
     origin: dict[str, str] = {}
 
     async def layer(name, agent, agent_input, load, save) -> ResearchReport:
-        hit = None if (fresh or cache_dir is None) else load()
+        hit = None if (fresh or cache is None) else load()
         if hit:
-            cached, path = hit
+            cached, key = hit
             origin[name] = f"cache ({cached.age_days():.1f} days old)"
-            run.tracer.event("research_cache", layer=name, hit=True, path=str(path), age_days=round(cached.age_days(), 2))
+            run.tracer.event("research_cache", layer=name, hit=True, key=key, age_days=round(cached.age_days(), 2))
             return cached.report
         report = await run(agent, agent_input)
         origin[name] = "live"
-        if cache_dir is not None:
-            path = save(report)
-            run.tracer.event("research_cache", layer=name, hit=False, saved_to=str(path))
+        if cache is not None:
+            key = save(report)
+            run.tracer.event("research_cache", layer=name, hit=False, saved_to=key)
         return report
 
     topic = await layer(
         "topic", TopicResearchAgent(), topic_in,
-        lambda: research_cache.load_topic(cache_dir, brand.name, topic_in),
-        lambda r: research_cache.save_topic(cache_dir, brand.name, topic_in, r),
+        lambda: research_cache.load_topic(cache, brand.name, topic_in),
+        lambda r: research_cache.save_topic(cache, brand.name, topic_in, r),
     )
     market = await layer(
         "market", MarketResearchAgent(), market_in,
-        lambda: research_cache.load_market(cache_dir, market_in),
-        lambda r: research_cache.save_market(cache_dir, market_in, r),
+        lambda: research_cache.load_market(cache, market_in),
+        lambda r: research_cache.save_market(cache, market_in, r),
     )
     return merge_reports(topic, market), origin
 
@@ -149,7 +149,7 @@ async def run_pipeline(
     brief: PostBrief,
     *,
     research: ResearchReport | None = None,
-    cache_dir: Path | None = None,  # no caching unless asked: tests can never write fake research to the real cache
+    cache: Storage | None = None,  # no caching unless asked: tests can never write fake research to the real cache
     fresh_research: bool = False,
     today: date | None = None,
     max_revisions: int = DEFAULT_MAX_REVISIONS,
@@ -160,8 +160,7 @@ async def run_pipeline(
     """Run the agents in order.
 
     research:       a saved report to use instead of researching (e.g. from a file)
-    cache_dir:      where research is cached; None (the default) disables the cache.
-                    The CLI passes research_cache.DEFAULT_DIR.
+    cache:          storage for the research cache; None (the default) disables it. The CLI passes its storage.
     fresh_research: ignore cached research and search again (the result is still saved)
     client_for / pricing_for: model alias -> LLM client / prices; tests pass fakes.
     """
@@ -175,7 +174,7 @@ async def run_pipeline(
             origin = {"research": "file"}
         else:
             research, origin = await gather_research(
-                brand, brief, run, cache_dir=cache_dir, fresh=fresh_research, today=today
+                brand, brief, run, cache=cache, fresh=fresh_research, today=today
             )
         plan = await run(StrategyAgent(), StrategyInput(brand=brand, brief=brief, research=research,
                                                         **({"today": today} if today else {})))

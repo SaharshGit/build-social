@@ -11,22 +11,22 @@ Two layers, matching the two kinds of research:
       PRIVATE to one brand (a topic can reveal unreleased products or plans).
       Reused for up to DEFAULT_MAX_AGE_DAYS.
 
-Local JSON files for now; in the product this moves to the database.
+Stored through a Storage (local folder or a cloud bucket); in the product this moves to a database.
 """
 
 import hashlib
 import json
 import re
 from datetime import date, datetime, timezone
-from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
 
 from buildsocial.agents.research import MarketInput, TopicInput
+from buildsocial.harness.storage import Storage
 from buildsocial.schemas import ResearchReport
 
-DEFAULT_DIR = Path("research_cache")
+PREFIX = "research_cache"
 DEFAULT_MAX_AGE_DAYS = 7
 
 
@@ -40,61 +40,62 @@ class CachedResearch(BaseModel):
         return (now - self.saved_at).total_seconds() / 86400
 
 
-# --- paths --------------------------------------------------------------------
+# --- keys ---------------------------------------------------------------------
 
 
-def market_path(directory: Path, input: MarketInput) -> Path:
+def market_key(input: MarketInput) -> str:
     year, week, _ = input.today.isocalendar()
-    return directory / "market" / f"{slug(input.industry)}_{slug(input.market)}_{year}-W{week:02d}.json"
+    return f"{PREFIX}/market/{slug(input.industry)}_{slug(input.market)}_{year}-W{week:02d}.json"
 
 
-def topic_path(directory: Path, brand_name: str, input: TopicInput) -> Path:
+def topic_key(brand_name: str, input: TopicInput) -> str:
     # Everything that changes what topic research should find is part of the key.
     key = json.dumps(
         [input.platform, input.topic.strip().lower(), (input.notes or "").strip(), input.industry, input.market],
         ensure_ascii=False,
     )
     digest = hashlib.sha256(key.encode()).hexdigest()[:8]
-    return directory / "brands" / slug(brand_name) / f"{input.platform}_{slug(input.topic)[:40]}_{digest}.json"
+    return f"{PREFIX}/brands/{slug(brand_name)}/{input.platform}_{slug(input.topic)[:40]}_{digest}.json"
 
 
 # --- load / save --------------------------------------------------------------
 
 
-def load_market(directory: Path, input: MarketInput) -> tuple[CachedResearch, Path] | None:
-    # The week is in the file name, so a file that exists is current by definition.
-    return _load(market_path(directory, input), max_age_days=None)
+def load_market(store: Storage, input: MarketInput) -> tuple[CachedResearch, str] | None:
+    # The week is in the key, so an entry that exists is current by definition.
+    return _load(store, market_key(input), max_age_days=None)
 
 
-def save_market(directory: Path, input: MarketInput, report: ResearchReport) -> Path:
-    return _save(market_path(directory, input), input.model_dump(mode="json"), report)
+def save_market(store: Storage, input: MarketInput, report: ResearchReport) -> str:
+    return _save(store, market_key(input), input.model_dump(mode="json"), report)
 
 
 def load_topic(
-    directory: Path, brand_name: str, input: TopicInput, max_age_days: float = DEFAULT_MAX_AGE_DAYS
-) -> tuple[CachedResearch, Path] | None:
-    return _load(topic_path(directory, brand_name, input), max_age_days=max_age_days)
+    store: Storage, brand_name: str, input: TopicInput, max_age_days: float = DEFAULT_MAX_AGE_DAYS
+) -> tuple[CachedResearch, str] | None:
+    return _load(store, topic_key(brand_name, input), max_age_days=max_age_days)
 
 
-def save_topic(directory: Path, brand_name: str, input: TopicInput, report: ResearchReport) -> Path:
+def save_topic(store: Storage, brand_name: str, input: TopicInput, report: ResearchReport) -> str:
     key = {"brand": brand_name, **input.model_dump(mode="json")}
-    return _save(topic_path(directory, brand_name, input), key, report)
+    return _save(store, topic_key(brand_name, input), key, report)
 
 
-def _load(path: Path, max_age_days: float | None) -> tuple[CachedResearch, Path] | None:
-    if not path.exists():
+def _load(store: Storage, key: str, max_age_days: float | None) -> tuple[CachedResearch, str] | None:
+    try:
+        text = store.read_text(key)
+    except FileNotFoundError:
         return None
-    cached = CachedResearch.model_validate_json(path.read_text(encoding="utf-8"))
+    cached = CachedResearch.model_validate_json(text)
     if max_age_days is not None and cached.age_days() > max_age_days:
         return None
-    return cached, path
+    return cached, key
 
 
-def _save(path: Path, key: dict[str, Any], report: ResearchReport) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    entry = CachedResearch(saved_at=datetime.now(timezone.utc), key=key, report=report)
-    path.write_text(entry.model_dump_json(indent=2) + "\n", encoding="utf-8")
-    return path
+def _save(store: Storage, key: str, what: dict[str, Any], report: ResearchReport) -> str:
+    entry = CachedResearch(saved_at=datetime.now(timezone.utc), key=what, report=report)
+    store.write_text(key, entry.model_dump_json(indent=2) + "\n")
+    return key
 
 
 def slug(text: str) -> str:

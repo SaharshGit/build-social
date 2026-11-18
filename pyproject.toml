@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 # Dependencies are added one at a time, as each build step needs them.
 dependencies = [
+    "google-cloud-storage>=3.17.1",
     "httpx>=0.28.1",
     "pydantic>=2.14.3",
     "python-dotenv>=1.2.4",

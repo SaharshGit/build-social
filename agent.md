@@ -34,6 +34,9 @@
   Results 2026-11-18: baseline 3/6 -> 6/6 after product facts + must-name-product check (repeat run also 6/6).
   Average scores move ~0.3 between identical runs: don't trust smaller differences from a single run.
   2 revision rounds: fewer open issues (13 -> 7) but worse safety (3/6); default stays 1 (`--max-revisions`).
-- Next: Sarvam reliability (hangs/timeouts; a case failed after 4 timeouts): fallback model on failure.
+- Done: fallback model (sarvam-105b -> deepseekv4.1-flash-1017 on transient failures).
+- Done: storage layer (`harness/storage.py`): ALL runtime data (traces, research cache, posts, eval results)
+  goes through Storage: local (default) or a GCS bucket (`BUILDSOCIAL_STORAGE=gcs`). Project files stay files.
+- Next: verify GCS against the real `buildsocial` bucket once the service-account key is in .env.
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.

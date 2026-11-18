@@ -12,6 +12,7 @@ from buildsocial.agents.judge import JudgeAgent, JudgeInput, Judgement
 from buildsocial.harness.llm.base import LLMClient
 from buildsocial.harness.llm.registry import Pricing, TokenPrices
 from buildsocial.harness.llm.types import LLMResponse, Usage
+from buildsocial.harness.storage import MemoryStorage
 from buildsocial.schemas import BrandProfile, ContentPlan, PostBrief, PostDraft, Review
 
 ROOT = Path(__file__).parent.parent
@@ -117,14 +118,15 @@ async def test_promised_result_fails_the_case_and_errors_dont_stop_others():
 # --- saving and comparing ------------------------------------------------------------------
 
 
-def test_save_and_compare(tmp_path):
+def test_save_and_compare():
+    store = MemoryStorage()
     j_ok = Judgement.model_validate_json(judgement(voice=3))
     j_bad = Judgement.model_validate_json(judgement(promised=["x"], voice=3))
-    a = evals.save_results([evals.CaseResult(id="c1", judgement=j_bad)], "before", tmp_path,
+    a = evals.save_results([evals.CaseResult(id="c1", judgement=j_bad)], "before", store,
                            now=datetime(2026, 11, 18, 10))
-    b = evals.save_results([evals.CaseResult(id="c1", judgement=j_ok)], "after", tmp_path,
+    b = evals.save_results([evals.CaseResult(id="c1", judgement=j_ok)], "after", store,
                            now=datetime(2026, 11, 18, 11))
-    assert a.name == "2026-11-18_100000_before.json"
-    out = evals.compare(a, b)
+    assert a == "evals/results/2026-11-18_100000_before.json"
+    out = evals.compare(store.read_text(a), store.read_text(b))
     assert "passed" in out and "0 -> 1" in out
     assert "c1: fail -> pass" in out

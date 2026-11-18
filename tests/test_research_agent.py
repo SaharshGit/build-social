@@ -19,6 +19,7 @@ from buildsocial.agents.research import (
 from buildsocial.harness.agent import AgentError
 from buildsocial.harness.llm.base import LLMClient, LLMError
 from buildsocial.harness.llm.types import Citation, LLMResponse, Usage
+from buildsocial.harness.storage import MemoryStorage
 from buildsocial.harness.trace import MemoryTracer
 from buildsocial.schemas import BrandProfile, Finding, ResearchReport, Source
 
@@ -184,23 +185,25 @@ def test_merge_renumbers_sources_and_rewrites_finding_references():
 # --- caches --------------------------------------------------------------------------
 
 
-def test_market_cache_is_shared_by_market_and_week(tmp_path, market_input):
-    saved = research_cache.save_market(tmp_path, market_input, report([], []))
-    assert saved.name == "specialty-coffee-cafe_bengaluru_2026-W47.json"
+def test_market_cache_is_shared_by_market_and_week(market_input):
+    store = MemoryStorage()
+    saved = research_cache.save_market(store, market_input, report([], []))
+    assert saved == "research_cache/market/specialty-coffee-cafe_bengaluru_2026-W47.json"
     # Another day in the same week: same file. Next week: a miss (research refreshed).
-    assert research_cache.load_market(tmp_path, market_input.model_copy(update={"today": date(2026, 11, 19)}))
-    assert research_cache.load_market(tmp_path, market_input.model_copy(update={"today": date(2026, 11, 24)})) is None
+    assert research_cache.load_market(store, market_input.model_copy(update={"today": date(2026, 11, 19)}))
+    assert research_cache.load_market(store, market_input.model_copy(update={"today": date(2026, 11, 24)})) is None
 
 
-def test_topic_cache_is_private_per_brand_and_expires(tmp_path, topic_input):
-    research_cache.save_topic(tmp_path, "Brew House", topic_input, report([], []))
-    assert research_cache.load_topic(tmp_path, "Brew House", topic_input)
-    assert research_cache.load_topic(tmp_path, "Other Cafe", topic_input) is None  # never shared
-    assert research_cache.load_topic(tmp_path, "Brew House", topic_input.model_copy(update={"topic": "x"})) is None
+def test_topic_cache_is_private_per_brand_and_expires(topic_input):
+    store = MemoryStorage()
+    research_cache.save_topic(store, "Brew House", topic_input, report([], []))
+    assert research_cache.load_topic(store, "Brew House", topic_input)
+    assert research_cache.load_topic(store, "Other Cafe", topic_input) is None  # never shared
+    assert research_cache.load_topic(store, "Brew House", topic_input.model_copy(update={"topic": "x"})) is None
 
     # Older than the limit: ignored.
-    path = research_cache.topic_path(tmp_path, "Brew House", topic_input)
-    entry = research_cache.CachedResearch.model_validate_json(path.read_text())
+    key = research_cache.topic_key("Brew House", topic_input)
+    entry = research_cache.CachedResearch.model_validate_json(store.read_text(key))
     old = entry.model_copy(update={"saved_at": datetime.now(timezone.utc) - timedelta(days=8)})
-    path.write_text(old.model_dump_json())
-    assert research_cache.load_topic(tmp_path, "Brew House", topic_input) is None
+    store.write_text(key, old.model_dump_json())
+    assert research_cache.load_topic(store, "Brew House", topic_input) is None

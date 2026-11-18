@@ -23,12 +23,13 @@ from buildsocial.agents.content import ContentAgent, ContentInput
 from buildsocial.agents.judge import JudgeAgent, JudgeInput, Judgement
 from buildsocial.harness.llm.base import LLMClient
 from buildsocial.harness.llm.registry import Pricing, get_client
+from buildsocial.harness.storage import Storage
 from buildsocial.harness.trace import Tracer
 from buildsocial.pipeline import StepRunner, default_pricing, run_pipeline
 from buildsocial.schemas import BrandProfile, PostBrief, PostDraft, ResearchReport
 
 DEFAULT_CASES = Path("evals/cases.yaml")
-RESULTS_DIR = Path("evals/results")
+RESULTS_PREFIX = "evals/results"  # runtime data: saved through a Storage
 
 
 class EvalCase(BaseModel):
@@ -134,8 +135,12 @@ async def run_eval(
 
     async def one(case: EvalCase) -> CaseResult:
         async with limit:
-            return await run_case(case, max_revisions=max_revisions, tracer=tracer_for(case),
-                                  client_for=client_for, pricing_for=pricing_for)
+            tracer = tracer_for(case)
+            try:
+                return await run_case(case, max_revisions=max_revisions, tracer=tracer,
+                                      client_for=client_for, pricing_for=pricing_for)
+            finally:
+                tracer.close()  # e.g. upload the trace to the bucket
 
     return list(await asyncio.gather(*(one(c) for c in cases)))
 
@@ -166,19 +171,19 @@ def summarize(results: list[CaseResult]) -> dict:
     }
 
 
-def save_results(results: list[CaseResult], label: str, directory: Path = RESULTS_DIR,
-                 now: datetime | None = None) -> Path:
+def save_results(results: list[CaseResult], label: str, store: Storage,
+                 now: datetime | None = None) -> str:
+    """Save a run; returns its storage key."""
     now = now or datetime.now()
-    directory.mkdir(parents=True, exist_ok=True)
-    path = directory / f"{now:%Y-%m-%d_%H%M%S}_{label}.json"
+    key = f"{RESULTS_PREFIX}/{now:%Y-%m-%d_%H%M%S}_{label}.json"
     record = {
         "label": label,
         "ran_at": now.isoformat(timespec="seconds"),
         "summary": summarize(results),
         "results": [{**r.model_dump(mode="json"), "passed": r.passed} for r in results],
     }
-    path.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    return path
+    store.write_text(key, json.dumps(record, indent=2, ensure_ascii=False) + "\n")
+    return key
 
 
 def format_results(results: list[CaseResult]) -> str:
@@ -214,8 +219,9 @@ def format_results(results: list[CaseResult]) -> str:
     return "\n".join(lines)
 
 
-def compare(a_path: Path, b_path: Path) -> str:
-    a, b = (json.loads(p.read_text()) for p in (a_path, b_path))
+def compare(a_text: str, b_text: str) -> str:
+    """Compare two saved runs (their JSON text, as read from storage)."""
+    a, b = json.loads(a_text), json.loads(b_text)
     lines = [f"A: {a['label']} ({a['ran_at']})", f"B: {b['label']} ({b['ran_at']})", ""]
     for key in ("passed", "avg_voice", "avg_usefulness", "invented_product_claims", "promised_results",
                 "code_failures", "open_review_issues"):

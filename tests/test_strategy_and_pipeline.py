@@ -12,6 +12,7 @@ from buildsocial.agents.strategy import StrategyAgent, StrategyInput
 from buildsocial.harness.llm.base import LLMClient, LLMError
 from buildsocial.harness.llm.registry import Pricing, TokenPrices
 from buildsocial.harness.llm.types import LLMResponse, Usage
+from buildsocial.harness.storage import MemoryStorage
 from buildsocial.harness.trace import MemoryTracer
 from buildsocial.pipeline import run_pipeline
 from buildsocial.schemas import BrandProfile, ContentPlan, PostBrief, ResearchReport
@@ -162,11 +163,12 @@ STRUCTURE = json.dumps({"summary": "s", "findings": [], "trends": []})
 LIVE_RESEARCH = [SEARCH_OK, STRUCTURE, SEARCH_OK, STRUCTURE]
 
 
-async def test_pipeline_costs_each_step_in_its_own_currency(tmp_path):
+async def test_pipeline_costs_each_step_in_its_own_currency():
+    store = MemoryStorage()
     _, client_for = fakes(research=list(LIVE_RESEARCH), strategy=[plan_json(finding_ids=[], concerns=[])],
                           content=[DRAFT_JSON], reviewer=[PASS_REVIEW])
     tracer = MemoryTracer()
-    result = await run_pipeline(BRAND, BRIEF, cache_dir=tmp_path, tracer=tracer, client_for=client_for,
+    result = await run_pipeline(BRAND, BRIEF, cache=store, tracer=tracer, client_for=client_for,
                                 pricing_for=lambda name: USD if name == "research" else INR)
 
     assert [s.agent for s in result.steps] == ["topic_research", "market_research", "strategy", "content", "reviewer"]
@@ -177,11 +179,12 @@ async def test_pipeline_costs_each_step_in_its_own_currency(tmp_path):
     assert currencies["market_research"] == "USD" and currencies["strategy"] == "INR"
 
 
-async def test_second_run_reuses_both_research_layers(tmp_path):
+async def test_second_run_reuses_both_research_layers():
+    store = MemoryStorage()
     def run_once(research_replies):
         _, client_for = fakes(research=research_replies, strategy=[plan_json(finding_ids=[], concerns=[])],
                               content=[DRAFT_JSON], reviewer=[PASS_REVIEW])
-        return run_pipeline(BRAND, BRIEF, cache_dir=tmp_path, client_for=client_for, pricing_for=lambda n: USD)
+        return run_pipeline(BRAND, BRIEF, cache=store, client_for=client_for, pricing_for=lambda n: USD)
 
     await run_once(list(LIVE_RESEARCH))
     second = await run_once([])  # an empty reply list: any research call would fail the test
@@ -190,16 +193,17 @@ async def test_second_run_reuses_both_research_layers(tmp_path):
     assert [s.agent for s in second.steps] == ["strategy", "content", "reviewer"]
 
 
-async def test_another_brand_in_the_same_market_shares_market_research_only(tmp_path):
+async def test_another_brand_in_the_same_market_shares_market_research_only():
+    store = MemoryStorage()
     _, client_for = fakes(research=list(LIVE_RESEARCH), strategy=[plan_json(finding_ids=[], concerns=[])],
                           content=[DRAFT_JSON], reviewer=[PASS_REVIEW])
-    await run_pipeline(BRAND, BRIEF, cache_dir=tmp_path, client_for=client_for, pricing_for=lambda n: USD)
+    await run_pipeline(BRAND, BRIEF, cache=store, client_for=client_for, pricing_for=lambda n: USD)
 
     other_cafe = BRAND.model_copy(update={"name": "Other Cafe"})
     # Only the topic layer may run live: 2 replies (search + structure), none for market.
     _, client_for = fakes(research=[SEARCH_OK, STRUCTURE], strategy=[plan_json(finding_ids=[], concerns=[])],
                           content=[DRAFT_JSON], reviewer=[PASS_REVIEW])
-    result = await run_pipeline(other_cafe, BRIEF, cache_dir=tmp_path, client_for=client_for,
+    result = await run_pipeline(other_cafe, BRIEF, cache=store, client_for=client_for,
                                 pricing_for=lambda n: USD)
     assert result.research_origin["topic"] == "live"  # private: never reused across brands
     assert result.research_origin["market"].startswith("cache")  # shared

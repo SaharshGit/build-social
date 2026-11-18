@@ -17,6 +17,7 @@ import argparse
 import asyncio
 import json
 import sys
+import tempfile
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -29,15 +30,17 @@ from buildsocial.agents.content import ContentAgent, ContentInput
 from buildsocial.harness.agent import AgentError, AgentResult
 from buildsocial.harness.llm.base import LLMError
 from buildsocial.harness.llm.registry import Pricing, get_client, resolve_model
+from buildsocial.harness.storage import LocalStorage, Storage, get_storage
 from buildsocial.harness.trace import (
+    TRACES_PREFIX,
     FileTracer,
     Tracer,
     format_trace,
     latest_trace,
-    read_trace,
+    parse_trace,
     summarize_spend,
 )
-from buildsocial import evals, output, research_cache
+from buildsocial import evals
 from buildsocial.output import save_post
 from buildsocial.pipeline import (
     PipelineResult,
@@ -60,7 +63,32 @@ from buildsocial.schemas import (
     Review,
 )
 
-TRACES_DIR = Path("traces")
+_STORE: Storage | None = None
+
+
+def store() -> Storage:
+    """Where runtime data goes (local folder or GCS bucket), from .env. Created once."""
+    global _STORE
+    if _STORE is None:
+        _STORE = get_storage()
+    return _STORE
+
+
+def new_tracer(args: argparse.Namespace, label: str, pricing: Pricing | None = None) -> Tracer:
+    if getattr(args, "no_trace", False):
+        return Tracer()  # records nothing
+    kw = {"cost_fn": pricing.cost, "currency": pricing.currency} if pricing else {}
+    s = store()
+    if isinstance(s, LocalStorage):
+        return FileTracer(s.root / TRACES_PREFIX, label, **kw)  # written in place
+    # Cloud: write a local working copy line by line, upload it when the run ends.
+    return FileTracer(Path(tempfile.gettempdir()) / "buildsocial-traces", label, store=s, **kw)
+
+
+def finish_tracer(tracer: Tracer) -> None:
+    tracer.close()
+    if tracer.location():
+        print(f"trace: {tracer.location()}", file=sys.stderr)
 LINE = "─" * 60
 
 
@@ -89,7 +117,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     trace = commands.add_parser("trace", help="show what happened in a run")
-    trace.add_argument("file", nargs="?", type=Path, help="trace file (default: the most recent in traces/)")
+    trace.add_argument("file", nargs="?", help="trace: storage key (traces/...jsonl) or local path (default: newest)")
     trace.add_argument("--full", action="store_true", help="show complete prompts and the run's input")
 
     ev = commands.add_parser("eval", help="run the eval cases and score them (frozen research, no Gemini cost)")
@@ -100,8 +128,8 @@ def main(argv: list[str] | None = None) -> int:
     ev.add_argument("--max-revisions", type=int, default=1, help="automatic revise rounds per post")
 
     cmp = commands.add_parser("eval-compare", help="compare two saved eval runs")
-    cmp.add_argument("a", type=Path)
-    cmp.add_argument("b", type=Path)
+    cmp.add_argument("a", help="saved run: storage key (evals/results/...json) or local path")
+    cmp.add_argument("b", help="saved run: storage key or local path")
 
     spend = commands.add_parser("spend", help="total recorded LLM spend, from trace files")
     spend.add_argument("--since", help="only count runs on or after this date (YYYY-MM-DD)")
@@ -115,7 +143,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "eval":
             return asyncio.run(run_evals(args))
         if args.command == "eval-compare":
-            print(evals.compare(args.a, args.b))
+            print(evals.compare(read_saved(args.a), read_saved(args.b)))
             return 0
         brand, brief = load_brand(args.brand), make_brief(args)
         if args.command == "run":
@@ -149,8 +177,8 @@ def add_research_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--no-cache", action="store_true", help="don't read or write the research cache")
 
 
-def cache_dir(args: argparse.Namespace) -> Path | None:
-    return None if args.no_cache else research_cache.DEFAULT_DIR
+def research_store(args: argparse.Namespace) -> Storage | None:
+    return None if args.no_cache else store()
 
 
 def make_brief(args: argparse.Namespace) -> PostBrief:
@@ -170,12 +198,7 @@ async def run_agent(
     _, model_cfg = resolve_model(agent.name)
     pricing = model_cfg.pricing
 
-    tracer: Tracer
-    if args.no_trace:
-        tracer = Tracer()  # records nothing
-    else:
-        tracer = FileTracer(TRACES_DIR, agent.name, cost_fn=pricing.cost, currency=pricing.currency)
-
+    tracer = new_tracer(args, agent.name, pricing)
     start = time.perf_counter()
     try:
         async with get_client(agent.name) as llm:
@@ -185,8 +208,7 @@ async def run_agent(
         print(f"cost of failed run: {pricing.currency} {pricing.cost(e.usage):.4f}", file=sys.stderr)
         raise
     finally:
-        if isinstance(tracer, FileTracer):
-            print(f"trace: {tracer.path}", file=sys.stderr)
+        finish_tracer(tracer)
     elapsed = time.perf_counter() - start
 
     if args.json:
@@ -204,16 +226,21 @@ async def run_full_pipeline(args: argparse.Namespace, brand: BrandProfile, brief
             raise FileNotFoundError(f"research file not found: {args.research_file}")
         research = ResearchReport.model_validate_json(args.research_file.read_text(encoding="utf-8"))
 
-    tracer: Tracer = Tracer() if args.no_trace else FileTracer(TRACES_DIR, "pipeline")
-    print(f"Running pipeline for {brand.name} on '{brief.topic}' ({brief.platform})...", file=sys.stderr)
+    tracer = new_tracer(args, "pipeline")
     try:
-        result = await run_pipeline(
-            brand, brief, research=research, cache_dir=cache_dir(args), fresh_research=args.fresh_research,
-            tracer=tracer,
-        )
+        return await _pipeline_and_approval(args, brand, brief, research, tracer)
     finally:
-        if isinstance(tracer, FileTracer):
-            print(f"trace: {tracer.path}", file=sys.stderr)
+        finish_tracer(tracer)  # after approval too, so feedback rounds are in the trace
+
+
+async def _pipeline_and_approval(
+    args: argparse.Namespace, brand: BrandProfile, brief: PostBrief, research: ResearchReport | None, tracer: Tracer
+) -> int:
+    print(f"Running pipeline for {brand.name} on '{brief.topic}' ({brief.platform})...", file=sys.stderr)
+    result = await run_pipeline(
+        brand, brief, research=research, cache=research_store(args), fresh_research=args.fresh_research,
+        tracer=tracer,
+    )
 
     if args.json:
         print(json.dumps({
@@ -242,8 +269,8 @@ async def run_full_pipeline(args: argparse.Namespace, brand: BrandProfile, brief
     if status is None:
         print("Not saved.", file=sys.stderr)
     else:
-        md_path, _ = save_post(output.DEFAULT_DIR, brand, brief, result, status, feedback)
-        print(f"Saved ({status.upper()}): {md_path}", file=sys.stderr)
+        md_key, _ = save_post(store(), brand, brief, result, status, feedback)
+        print(f"Saved ({status.upper()}): {store().location(md_key)}", file=sys.stderr)
     return 0
 
 
@@ -292,16 +319,15 @@ async def approval_loop(
 
 
 async def run_research(args: argparse.Namespace, brand: BrandProfile, brief: PostBrief) -> int:
-    tracer: Tracer = Tracer() if args.no_trace else FileTracer(TRACES_DIR, "research")
+    tracer = new_tracer(args, "research")
     print(f"Researching '{brief.topic}' for {brand.name} ({brand.industry}, {brand.market})...", file=sys.stderr)
     runner = StepRunner(tracer, get_client, default_pricing)
     try:
         report, origin = await gather_research(
-            brand, brief, runner, cache_dir=cache_dir(args), fresh=args.fresh_research
+            brand, brief, runner, cache=research_store(args), fresh=args.fresh_research
         )
     finally:
-        if isinstance(tracer, FileTracer):
-            print(f"trace: {tracer.path}", file=sys.stderr)
+        finish_tracer(tracer)
     if args.json:
         print(report.model_dump_json(indent=2))
     else:
@@ -363,20 +389,20 @@ async def run_evals(args: argparse.Namespace) -> int:
         cases,
         concurrency=args.concurrency,
         max_revisions=args.max_revisions,
-        tracer_for=lambda case: FileTracer(TRACES_DIR, f"eval_{case.id}"),
+        tracer_for=lambda case: new_tracer(args, f"eval_{case.id}"),
     )
     print(evals.format_results(results))
-    path = evals.save_results(results, args.label)
-    print(f"\nSaved: {path}", file=sys.stderr)
+    key = evals.save_results(results, args.label, store())
+    print(f"\nSaved: {store().location(key)}", file=sys.stderr)
     return 0
 
 
 def show_spend(args: argparse.Namespace) -> int:
-    totals = summarize_spend(sorted(TRACES_DIR.glob("*.jsonl")), since=args.since)
+    totals = summarize_spend(store(), since=args.since)
     if not totals:
         print("No recorded spend yet." + (f" (since {args.since})" if args.since else ""))
         return 0
-    print(f"Recorded LLM spend{' since ' + args.since if args.since else ''} (from {TRACES_DIR}/):\n")
+    print(f"Recorded LLM spend{' since ' + args.since if args.since else ''} (from {store().location(TRACES_PREFIX)}/):\n")
     by_currency: dict[str, float] = {}
     for (currency, model), t in sorted(totals.items()):
         searches = f", {int(t['web_searches'])} web searches" if t["web_searches"] else ""
@@ -389,14 +415,23 @@ def show_spend(args: argparse.Namespace) -> int:
 
 
 def show_trace(args: argparse.Namespace) -> int:
-    path = args.file or latest_trace(TRACES_DIR)
-    if path is None:
-        raise FileNotFoundError(f"no traces in {TRACES_DIR}/ yet; run an agent first")
-    if not path.exists():
-        raise FileNotFoundError(f"trace file not found: {path}")
-    print(f"{path}\n")
-    print(format_trace(read_trace(path), full=args.full))
+    if args.file:
+        text, where = read_saved(args.file), str(args.file)
+    else:
+        key = latest_trace(store())
+        if key is None:
+            raise FileNotFoundError(f"no traces in {store().location(TRACES_PREFIX)} yet; run an agent first")
+        text, where = store().read_text(key), store().location(key)
+    print(f"{where}\n")
+    print(format_trace(parse_trace(text), full=args.full))
     return 0
+
+
+def read_saved(name: str | Path) -> str:
+    """A saved file: a storage key (e.g. traces/x.jsonl), or a local path."""
+    if Path(name).is_file():
+        return Path(name).read_text(encoding="utf-8")
+    return store().read_text(str(name))
 
 
 def load_brand(path: Path) -> BrandProfile:

@@ -12,6 +12,7 @@ from buildsocial.cli import approval_loop
 from buildsocial.harness.llm.base import LLMClient
 from buildsocial.harness.llm.registry import Pricing, TokenPrices
 from buildsocial.harness.llm.types import LLMResponse, Usage
+from buildsocial.harness.storage import MemoryStorage
 from buildsocial.harness.trace import MemoryTracer
 from buildsocial.output import save_post
 from buildsocial.pipeline import PipelineResult, revise_with_feedback
@@ -118,18 +119,18 @@ async def test_loop_revises_with_feedback_then_approves():
 # --- saved files ---------------------------------------------------------------------------
 
 
-def test_save_post_writes_markdown_and_full_json(tmp_path):
-    md, js = save_post(tmp_path, BRAND, BRIEF, base_result(), "approved", feedback=["Shorter"],
+def test_save_post_writes_markdown_and_full_json():
+    store = MemoryStorage()
+    md, js = save_post(store, BRAND, BRIEF, base_result(), "approved", feedback=["Shorter"],
                        now=datetime(2026, 11, 17, 21, 30))
-    assert md.parent.name == "mamaearth"
-    assert md.name == "2026-11-17_213000_instagram_onion-hair-oil-for-winter-hair-care.md"
+    assert md == "output/mamaearth/2026-11-17_213000_instagram_onion-hair-oil-for-winter-hair-care.md"
 
-    text = md.read_text()
+    text = store.read_text(md)
     assert text.startswith("# Mamaearth · instagram · APPROVED")
     assert DRAFT.full_text in text
     assert RESEARCH.findings[2].tagged() in text and "](https://" in text  # facts with source links
     assert "1. Shorter" in text
 
-    record = json.loads(js.read_text())
+    record = json.loads(store.read_text(js))
     assert record["status"] == "approved" and record["draft"]["hook"] == DRAFT.hook
     assert record["facts_used"][0]["sources"][0]["url"].startswith("https://")

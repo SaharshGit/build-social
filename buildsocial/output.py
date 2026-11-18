@@ -4,36 +4,35 @@
     output/<brand>/<date>_<time>_<platform>_<topic>.json   the full record: plan, facts and their
                                                            sources, review, cost, feedback
 
-Local files for now; in the product this becomes a table in the database.
+Stored through a Storage (local folder or a cloud bucket); in the product this becomes a database table.
 """
 
 import json
 from datetime import datetime
-from pathlib import Path
 from typing import Literal
 
+from buildsocial.harness.storage import Storage
 from buildsocial.pipeline import PipelineResult
 from buildsocial.research_cache import slug
 from buildsocial.schemas import BrandProfile, PostBrief
 
-DEFAULT_DIR = Path("output")
+PREFIX = "output"
 Status = Literal["approved", "pending"]
 
 
 def save_post(
-    directory: Path,
+    store: Storage,
     brand: BrandProfile,
     brief: PostBrief,
     result: PipelineResult,
     status: Status,
     feedback: list[str] | None = None,
     now: datetime | None = None,
-) -> tuple[Path, Path]:
+) -> tuple[str, str]:
+    """Save the post; returns the storage keys of the .md and .json files."""
     now = now or datetime.now()
-    folder = directory / slug(brand.name)
-    folder.mkdir(parents=True, exist_ok=True)
-    stem = f"{now:%Y-%m-%d_%H%M%S}_{brief.platform}_{slug(brief.topic)[:40]}"
-    md_path, json_path = folder / f"{stem}.md", folder / f"{stem}.json"
+    stem = f"{PREFIX}/{slug(brand.name)}/{now:%Y-%m-%d_%H%M%S}_{brief.platform}_{slug(brief.topic)[:40]}"
+    md_key, json_key = f"{stem}.md", f"{stem}.json"
 
     facts = result.plan.approved_facts(result.research)
     totals = result.totals()
@@ -73,7 +72,7 @@ def save_post(
         ", ".join(f"{cur} {amount:.4f}" for cur, amount in totals.items()) or "nothing (all cached)",
         "",
     ]
-    md_path.write_text("\n".join(md), encoding="utf-8")
+    store.write_text(md_key, "\n".join(md))
 
     record = {
         "status": status,
@@ -95,5 +94,5 @@ def save_post(
         "steps": [s.summary() for s in result.steps],
         "cost": totals,
     }
-    json_path.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    return md_path, json_path
+    store.write_text(json_key, json.dumps(record, indent=2, ensure_ascii=False) + "\n")
+    return md_key, json_key

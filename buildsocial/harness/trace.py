@@ -21,13 +21,17 @@ import uuid
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
 from buildsocial.harness.llm.types import Usage
 
+if TYPE_CHECKING:
+    from buildsocial.harness.storage import Storage
+
 CostFn = Callable[[Usage], float]
+TRACES_PREFIX = "traces"
 
 
 class Tracer:
@@ -61,6 +65,13 @@ class Tracer:
     def write(self, record: dict[str, Any]) -> None:
         """Override to store the record. The base tracer drops it."""
 
+    def close(self) -> None:
+        """Finish the trace (e.g. upload it). Call once, when the run ends."""
+
+    def location(self) -> str | None:
+        """Where the finished trace is kept, for messages. None if not kept."""
+        return None
+
     def scoped(self, cost_fn: CostFn | None, currency: str | None) -> "Tracer":
         """Same destination and run id, different pricing.
 
@@ -73,7 +84,12 @@ class Tracer:
 
 
 class FileTracer(Tracer):
-    """Writes one JSON line per event to <directory>/<time>_<label>_<run_id>.jsonl."""
+    """Writes one JSON line per event to <directory>/<time>_<label>_<run_id>.jsonl.
+
+    With `store` (e.g. a cloud bucket), the local file is a working copy: close()
+    uploads it to `traces/<name>` and deletes it. Cloud objects can't be appended to,
+    so writing line by line locally keeps the crash safety and still ends up in the bucket.
+    """
 
     def __init__(
         self,
@@ -81,11 +97,25 @@ class FileTracer(Tracer):
         label: str,
         cost_fn: CostFn | None = None,
         currency: str | None = None,
+        store: "Storage | None" = None,
     ):
         super().__init__(cost_fn, currency)
         directory.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
         self.path = directory / f"{stamp}_{label}_{self.run_id}.jsonl"
+        self.key = f"{TRACES_PREFIX}/{self.path.name}"
+        self.store = store
+        self._uploaded = False
+
+    def close(self) -> None:
+        if self.store is None or self._uploaded or not self.path.exists():
+            return
+        self.store.write_text(self.key, self.path.read_text(encoding="utf-8"))
+        self._uploaded = True
+        self.path.unlink()  # the bucket now has the trace
+
+    def location(self) -> str | None:
+        return self.store.location(self.key) if self.store and self._uploaded else str(self.path)
 
     def write(self, record: dict[str, Any]) -> None:
         # Open, append, close for every event: slower than keeping the file open,
@@ -110,15 +140,18 @@ class MemoryTracer(Tracer):
 # ----------------------------------------------------------------------
 
 
+def parse_trace(text: str) -> list[dict[str, Any]]:
+    return [json.loads(line) for line in text.splitlines() if line.strip()]
+
+
 def read_trace(path: Path) -> list[dict[str, Any]]:
-    with path.open(encoding="utf-8") as f:
-        return [json.loads(line) for line in f if line.strip()]
+    return parse_trace(path.read_text(encoding="utf-8"))
 
 
-def latest_trace(directory: Path) -> Path | None:
-    # File names start with a timestamp, so the last name in sorted order is the newest.
-    files = sorted(directory.glob("*.jsonl"))
-    return files[-1] if files else None
+def latest_trace(store: "Storage") -> str | None:
+    # Names start with a timestamp, so the last key in sorted order is the newest.
+    keys = [k for k in store.list(f"{TRACES_PREFIX}/") if k.endswith(".jsonl")]
+    return keys[-1] if keys else None
 
 
 def format_trace(records: list[dict[str, Any]], full: bool = False) -> str:
@@ -237,15 +270,17 @@ def _indent(text: str, prefix: str = "  ") -> str:
 # ----------------------------------------------------------------------
 
 
-def summarize_spend(paths: list[Path], since: str | None = None) -> dict[tuple[str, str], dict[str, float]]:
+def summarize_spend(store: "Storage", since: str | None = None) -> dict[tuple[str, str], dict[str, float]]:
     """Total cost per (currency, model) over llm_call events, optionally since a date (YYYY-MM-DD).
 
     Only CLI runs write trace files, so this is the recorded spend of real runs
     (tests use in-memory tracers and never appear here).
     """
     totals: dict[tuple[str, str], dict[str, float]] = {}
-    for path in paths:
-        for r in read_trace(path):
+    for key in store.list(f"{TRACES_PREFIX}/"):
+        if not key.endswith(".jsonl"):
+            continue
+        for r in parse_trace(store.read_text(key)):
             if r.get("type") != "llm_call" or "cost" not in r:
                 continue
             if since and r.get("ts", "") < since:

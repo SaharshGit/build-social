@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from buildsocial.harness.agent import Agent, AgentError
 from buildsocial.harness.llm.base import LLMClient, LLMError
 from buildsocial.harness.llm.types import LLMResponse, Message, Usage
+from buildsocial.harness.storage import LocalStorage, MemoryStorage
 from buildsocial.harness.trace import FileTracer, MemoryTracer, Tracer, format_trace, latest_trace, read_trace
 
 
@@ -54,10 +55,12 @@ def test_base_tracer_records_nothing():
 
 
 def test_latest_trace(tmp_path):
-    assert latest_trace(tmp_path) is None
-    (tmp_path / "2026-01-01T10-00-00_a_1.jsonl").write_text("")
-    (tmp_path / "2026-01-02T09-00-00_a_2.jsonl").write_text("")
-    assert latest_trace(tmp_path).name.startswith("2026-01-02")
+    store = MemoryStorage()
+    assert latest_trace(store) is None
+    store.write_text("traces/2026-01-01T10-00-00_a_1.jsonl", "")
+    store.write_text("traces/2026-01-02T09-00-00_a_2.jsonl", "")
+    store.write_text("traces/notes.txt", "")  # not a trace
+    assert latest_trace(store) == "traces/2026-01-02T09-00-00_a_2.jsonl"
 
 
 # --- events reported by the agent loop ---------------------------------------
@@ -143,14 +146,34 @@ async def test_format_trace_is_readable():
 def test_summarize_spend_totals_per_currency_and_model(tmp_path):
     from buildsocial.harness.trace import summarize_spend
 
-    a = FileTracer(tmp_path, "run", cost_fn=price, currency="INR")
+    a = FileTracer(tmp_path / "traces", "run", cost_fn=price, currency="INR")
     a.event("llm_call", usage=Usage(input_tokens=1), response={"model": "sarvam-105b"})
     a.event("llm_call", usage=Usage(input_tokens=2), response={"model": "sarvam-105b"})
-    b = FileTracer(tmp_path, "run", cost_fn=lambda u: 0.5, currency="USD")
+    b = FileTracer(tmp_path / "traces", "run", cost_fn=lambda u: 0.5, currency="USD")
     b.event("llm_call", usage=Usage(web_searches=3), response={"model": "gemini"})
     b.event("validation", errors=[])  # not a call: ignored
 
-    totals = summarize_spend(sorted(tmp_path.glob("*.jsonl")))
+    totals = summarize_spend(LocalStorage(tmp_path))
     assert totals[("INR", "sarvam-105b")] == {"calls": 2, "cost": 3, "web_searches": 0}
     assert totals[("USD", "gemini")] == {"calls": 1, "cost": 0.5, "web_searches": 3}
-    assert summarize_spend(sorted(tmp_path.glob("*.jsonl")), since="2999-01-01") == {}
+    assert summarize_spend(LocalStorage(tmp_path), since="2999-01-01") == {}
+
+
+def test_file_tracer_uploads_to_storage_on_close_and_removes_working_copy(tmp_path):
+    bucket = MemoryStorage()  # stands in for a cloud bucket
+    tracer = FileTracer(tmp_path / "work", "pipeline", store=bucket)
+    tracer.event("run_start", agent="content")
+    assert tracer.path.exists() and bucket.list("traces/") == []  # still local while the run is going
+
+    tracer.close()
+    assert bucket.list("traces/") == [tracer.key] and not tracer.path.exists()
+    assert '"type": "run_start"' in bucket.read_text(tracer.key)
+    assert tracer.location() == f"memory://traces/{tracer.path.name}"
+    tracer.close()  # closing twice is harmless
+
+
+def test_file_tracer_without_storage_stays_a_local_file(tmp_path):
+    tracer = FileTracer(tmp_path / "traces", "run")
+    tracer.event("x")
+    tracer.close()
+    assert tracer.path.exists() and tracer.location() == str(tracer.path)
