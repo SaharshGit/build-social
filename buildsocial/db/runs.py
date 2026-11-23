@@ -53,9 +53,11 @@ async def list_runs(
     return list(result.scalars())
 
 
-async def post_id_for(db: AsyncSession, run_id: uuid.UUID) -> uuid.UUID | None:
-    """The post a finished run produced (posts point at their run)."""
-    result = await db.execute(select(Post.id).where(Post.run_id == run_id).order_by(Post.created_at.desc()).limit(1))
+async def post_id_for(db: AsyncSession, run: Run) -> uuid.UUID | None:
+    """The post a run produced, or (revision runs) the post it revised, once it's done."""
+    if run.revises_post_id is not None:
+        return run.revises_post_id if run.status == RunStatus.DONE else None
+    result = await db.execute(select(Post.id).where(Post.run_id == run.id).order_by(Post.created_at.desc()).limit(1))
     return result.scalar_one_or_none()
 
 

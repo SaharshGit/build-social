@@ -50,6 +50,9 @@
   `buildsocial worker` claims runs with SELECT ... FOR UPDATE SKIP LOCKED, runs the pipeline with an
   on_progress callback, saves the post (status pending) or the error; stuck runs failed on restart.
   Verified end to end on Postgres + real models (~16s, ~INR 0.14).
-  Next: Step 4, post endpoints (list/get/approve/reject/revise; revision runs in the worker).
+  Step 4 done: review queue at /posts (list, get with full_text, approve, reject, revise -> revision run that
+  updates the SAME post, old draft in history). Verified end to end on Postgres + real models.
+  Found: revision feedback is only partly applied (asked <400 chars, got 633) and nothing checks it.
+  Next: Step 5 (wrap-up: README for running API + worker, push/PR), then quality work.
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.

@@ -4,10 +4,10 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from buildsocial.db.models import Brand, Run
-from buildsocial.schemas import BrandProfile
+from buildsocial.db.models import Brand, Post, Run
+from buildsocial.schemas import BrandProfile, ContentPlan, PostDraft, Review
 
 
 class BrandSummary(BaseModel):
@@ -67,3 +67,62 @@ class RunOut(BaseModel):
         return cls(id=r.id, brand_id=r.brand_id, kind=r.kind, status=r.status, brief=r.brief,
                    current_step=r.current_step, steps=r.steps, cost=r.cost, error=r.error, post_id=post_id,
                    created_at=r.created_at, started_at=r.started_at, finished_at=r.finished_at)
+
+
+class PostSummary(BaseModel):
+    """One row in the review queue."""
+
+    id: uuid.UUID
+    brand_id: uuid.UUID
+    status: str  # pending / approved / rejected
+    platform: str
+    topic: str
+    hook: str
+    open_issues: int  # reviewer issues still open on the current draft
+    revisions: int  # how many earlier drafts there are
+    created_at: datetime
+    decided_at: datetime | None
+
+    @classmethod
+    def from_row(cls, p: Post) -> "PostSummary":
+        return cls(id=p.id, brand_id=p.brand_id, status=p.status, platform=p.platform, topic=p.topic,
+                   hook=p.draft.get("hook", ""), open_issues=len(p.review.get("issues", [])),
+                   revisions=len(p.history), created_at=p.created_at, decided_at=p.decided_at)
+
+
+class PostOut(BaseModel):
+    """One post in full: what a reviewer needs to decide."""
+
+    id: uuid.UUID
+    brand_id: uuid.UUID
+    run_id: uuid.UUID
+    status: str
+    platform: str
+    topic: str
+    full_text: str  # exactly as it would be published
+    draft: PostDraft
+    review: Review  # open issues on the current draft
+    plan: ContentPlan
+    facts: list[dict[str, Any]]  # facts the post may use, each with its sources
+    history: list[dict[str, Any]]  # earlier drafts, their reviews and the feedback that changed them
+    feedback: list[dict[str, Any]]  # what people asked for (revise / approve / reject notes)
+    created_at: datetime
+    updated_at: datetime
+    decided_at: datetime | None
+
+    @classmethod
+    def from_row(cls, p: Post) -> "PostOut":
+        draft = PostDraft.model_validate(p.draft)
+        return cls(id=p.id, brand_id=p.brand_id, run_id=p.run_id, status=p.status, platform=p.platform,
+                   topic=p.topic, full_text=draft.full_text, draft=draft, review=Review.model_validate(p.review),
+                   plan=ContentPlan.model_validate(p.plan), facts=p.facts, history=p.history,
+                   feedback=p.feedback, created_at=p.created_at, updated_at=p.updated_at,
+                   decided_at=p.decided_at)
+
+
+class DecisionIn(BaseModel):
+    reason: str | None = Field(default=None, max_length=2000, description="Optional note, kept with the post")
+
+
+class ReviseIn(BaseModel):
+    feedback: str = Field(min_length=3, max_length=2000, description="What should change, in plain words")

@@ -36,7 +36,7 @@ async def get_run(
     run = await run_ops.get_run(db, org, run_id)
     if run is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "run not found")
-    return RunOut.from_row(run, await run_ops.post_id_for(db, run.id))
+    return RunOut.from_row(run, await run_ops.post_id_for(db, run))
 
 
 @router.get("/runs", response_model=list[RunOut])
@@ -46,4 +46,4 @@ async def list_runs(
 ):
     """Most recent first. Filter by brand and/or status (e.g. ?status=queued)."""
     runs = await run_ops.list_runs(db, org, brand_id, status, min(limit, 200))
-    return [RunOut.from_row(r, await run_ops.post_id_for(db, r.id)) for r in runs]
+    return [RunOut.from_row(r, await run_ops.post_id_for(db, r)) for r in runs]

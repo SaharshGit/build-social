@@ -19,14 +19,14 @@ from datetime import timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from buildsocial.db import runs as run_ops
-from buildsocial.db.models import Brand, Run, RunKind
-from buildsocial.db.posts import create_post_from_result
+from buildsocial.db.models import Brand, Post, Run, RunKind
+from buildsocial.db.posts import apply_revision, create_post_from_result, result_from_post
 from buildsocial.db.session import session as db_session
 from buildsocial.harness.llm.base import LLMClient
 from buildsocial.harness.llm.registry import Pricing, get_client
 from buildsocial.harness.storage import Storage
 from buildsocial.harness.trace import Tracer
-from buildsocial.pipeline import default_pricing, run_pipeline
+from buildsocial.pipeline import default_pricing, revise_with_feedback, run_pipeline
 from buildsocial.schemas import BrandProfile, PostBrief
 
 SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
@@ -52,14 +52,13 @@ async def process_one(deps: WorkerDeps) -> uuid.UUID | None:
         if run is None:
             return None
         run_id, brand_id, kind, brief = run.id, run.brand_id, run.kind, run.brief
+        feedback, post_id = run.feedback, run.revises_post_id
 
     started = time.perf_counter()
     tracer = deps.tracer_for(run_id)
     trace_key = getattr(tracer, "key", None)
     deps.log(f"run {run_id}: started ({kind})")
     try:
-        if kind != RunKind.PIPELINE:
-            raise NotImplementedError(f"'{kind}' runs aren't supported yet")
         async with deps.session() as db:
             brand = await db.get(Brand, brand_id)
             profile = BrandProfile.model_validate(brand.profile)
@@ -68,13 +67,21 @@ async def process_one(deps: WorkerDeps) -> uuid.UUID | None:
             async with deps.session() as db:  # own transaction: visible to GET /runs/{id} right away
                 await run_ops.record_progress(db, run_id, label, summary)
 
-        result = await run_pipeline(
-            profile, PostBrief.model_validate(brief), cache=deps.cache, tracer=tracer,
-            client_for=deps.client_for, pricing_for=deps.pricing_for, on_progress=progress,
-        )
-        async with deps.session() as db:
-            post = await create_post_from_result(db, await db.get(Run, run_id), result)
-            await run_ops.finish_run(db, run_id, trace_key)
+        common = dict(tracer=tracer, client_for=deps.client_for, pricing_for=deps.pricing_for, on_progress=progress)
+        if kind == RunKind.PIPELINE:
+            result = await run_pipeline(profile, PostBrief.model_validate(brief), cache=deps.cache, **common)
+            async with deps.session() as db:
+                post = await create_post_from_result(db, await db.get(Run, run_id), result)
+                await run_ops.finish_run(db, run_id, trace_key)
+        elif kind == RunKind.REVISION:
+            async with deps.session() as db:
+                saved = result_from_post(await db.get(Post, post_id))
+            revised = await revise_with_feedback(saved, profile, PostBrief.model_validate(brief), feedback, **common)
+            async with deps.session() as db:  # the SAME post gets the new draft; the old one goes to history
+                post = await apply_revision(db, await db.get(Post, post_id), revised, feedback)
+                await run_ops.finish_run(db, run_id, trace_key)
+        else:
+            raise NotImplementedError(f"'{kind}' runs aren't supported")
         deps.log(f"run {run_id}: done in {time.perf_counter() - started:.0f}s -> post {post.id}")
     except Exception as e:  # any failure is recorded on the run; the worker keeps going
         async with deps.session() as db:
