@@ -54,5 +54,9 @@
   updates the SAME post, old draft in history). Verified end to end on Postgres + real models.
   Found: revision feedback is only partly applied (asked <400 chars, got 633) and nothing checks it.
   Next: Step 5 (wrap-up: README for running API + worker, push/PR), then quality work.
+- Frontend phase (branch `sg/frontend`): F1 done: React + Vite + TypeScript in `frontend/`, React Router,
+  TanStack Query, types generated from the API (`npm run gen:api`), dev proxy /api -> :8000, sidebar layout +
+  API status dot, placeholder pages. Plain CSS. WSL has only 3.8 GB RAM (builds can be killed when tight).
+  Next: F2 review queue + post detail (read only).
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.
