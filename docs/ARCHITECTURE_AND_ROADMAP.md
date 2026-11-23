@@ -105,9 +105,25 @@ Later agents: Creative, Publishing, Analytics.
 - [x] Step 4 (changed): Research via Gemini's built-in Google Search (no own tool loop yet); two layers (shared market, private topic) with caching
 - [x] Step 5: Pipeline: Research → Strategy → Content → Reviewer (`uv run buildsocial run ...`)
 - [x] Step 6: Human approval in the CLI; posts saved to `output/`
-- [ ] Step 7: Evals: fixed briefs for the 3 test brands, scored by code checks + an LLM judge, to compare prompt/model changes
+- [x] Step 7: Evals: 6 fixed cases (3 brands x 2 platforms), frozen research, code checks + an LLM judge (`buildsocial eval`, `eval-compare`)
 - [ ] Step 8: Own tool loop (function tools, MCP) when an agent needs tools beyond built-in search
-- [ ] Step 9: Decide: keep own harness vs adopt LangGraph; then wrap in FastAPI
+- [x] Step 9: Kept our own harness (no LangGraph needed so far); wrapped in FastAPI (see the API phase below)
+
+### API phase (done)
+
+- [x] A1: Postgres in Docker, tables (organizations, brands, runs, posts), Alembic migrations
+- [x] A2: FastAPI app, `/health`, brand endpoints, `import-brands`
+- [x] A3: Runs + background worker (`POST /brands/{id}/runs` returns 202; worker claims runs with
+  `FOR UPDATE SKIP LOCKED`; live progress at `GET /runs/{id}`)
+- [x] A4: Review queue (`/posts`: list, view, approve, reject, revise -> revision run on the same post)
+
+### Next
+
+- [ ] Quality: verify revision feedback was applied; reviewer over-flagging; LinkedIn voice for consumer brands
+- [ ] Frontend: review screen (queue -> post -> approve / revise) on top of the API
+- [ ] Login and multiple organizations (tables already carry organization_id)
+- [ ] Scheduling, publishing (platform APIs), analytics, learning loop
+- [ ] Deployment (GCP: Cloud SQL via DATABASE_URL, the bucket for storage)
 
 ## 7. Content formats and visuals (planned, not built)
 
@@ -137,4 +153,4 @@ Later agents: Creative, Publishing, Analytics.
 
 ## 8. Later (not now)
 
-FastAPI service, Postgres (drafts, runs, brands), background jobs, React UI, OAuth social connections and publishing, multi-tenancy, Docker, deployment.
+React UI, OAuth social connections and publishing, login and multi-tenancy, running the API and worker in Docker, deployment.

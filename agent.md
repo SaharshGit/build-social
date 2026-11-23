@@ -40,5 +40,19 @@
 - Done: runtime data on GCS bucket `gs://build-social` (BUILDSOCIAL_STORAGE=gcs; key as one-line GCS_CREDENTIALS_JSON
   in .env, service account with Storage Object Admin on that bucket only). Local research cache, posts and eval
   results copied up; old local traces still only on the laptop.
+- API phase (branch `sg/api`): Step 1 done: Postgres in Docker (`docker compose up -d`, 127.0.0.1 only),
+  tables organizations/brands/runs/posts (`buildsocial/db/models.py`), Alembic migrations in `migrations/`
+  (`uv run alembic upgrade head`). DATABASE_URL in .env; only it changes for Cloud SQL later.
+  Step 2 done: FastAPI app (`buildsocial/api/`), GET /health, brand CRUD at /brands (body = BrandProfile),
+  `buildsocial api` (http://127.0.0.1:8000/docs), `buildsocial import-brands examples/*.yaml`.
+  No login yet: one default organization. API tests use in-memory SQLite (tests/conftest.py).
+  Step 3 done: POST /brands/{id}/runs (202, queued), GET /runs/{id} (live progress), GET /runs;
+  `buildsocial worker` claims runs with SELECT ... FOR UPDATE SKIP LOCKED, runs the pipeline with an
+  on_progress callback, saves the post (status pending) or the error; stuck runs failed on restart.
+  Verified end to end on Postgres + real models (~16s, ~INR 0.14).
+  Step 4 done: review queue at /posts (list, get with full_text, approve, reject, revise -> revision run that
+  updates the SAME post, old draft in history). Verified end to end on Postgres + real models.
+  Found: revision feedback is only partly applied (asked <400 chars, got 633) and nothing checks it.
+  Next: Step 5 (wrap-up: README for running API + worker, push/PR), then quality work.
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.

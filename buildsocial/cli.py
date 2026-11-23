@@ -131,6 +131,18 @@ def main(argv: list[str] | None = None) -> int:
     cmp.add_argument("a", help="saved run: storage key (evals/results/...json) or local path")
     cmp.add_argument("b", help="saved run: storage key or local path")
 
+    api = commands.add_parser("api", help="run the web API (then open http://127.0.0.1:8000/docs)")
+    api.add_argument("--host", default="127.0.0.1", help="127.0.0.1 = this laptop only (default)")
+    api.add_argument("--port", type=int, default=8000)
+    api.add_argument("--reload", action="store_true", help="restart automatically when code changes")
+
+    wk = commands.add_parser("worker", help="process queued pipeline runs (started via the API)")
+    wk.add_argument("--once", action="store_true", help="process at most one queued run, then exit")
+    wk.add_argument("--poll", type=float, default=2.0, help="seconds between queue checks when idle")
+
+    imp = commands.add_parser("import-brands", help="load brand YAML files into the database (create or update)")
+    imp.add_argument("files", nargs="+", type=Path)
+
     spend = commands.add_parser("spend", help="total recorded LLM spend, from trace files")
     spend.add_argument("--since", help="only count runs on or after this date (YYYY-MM-DD)")
 
@@ -140,6 +152,15 @@ def main(argv: list[str] | None = None) -> int:
             return show_trace(args)
         if args.command == "spend":
             return show_spend(args)
+        if args.command == "api":
+            import uvicorn
+
+            uvicorn.run("buildsocial.api.app:app", host=args.host, port=args.port, reload=args.reload)
+            return 0
+        if args.command == "worker":
+            return asyncio.run(run_worker(args))
+        if args.command == "import-brands":
+            return asyncio.run(import_brands(args.files))
         if args.command == "eval":
             return asyncio.run(run_evals(args))
         if args.command == "eval-compare":
@@ -394,6 +415,37 @@ async def run_evals(args: argparse.Namespace) -> int:
     print(evals.format_results(results))
     key = evals.save_results(results, args.label, store())
     print(f"\nSaved: {store().location(key)}", file=sys.stderr)
+    return 0
+
+
+async def run_worker(args: argparse.Namespace) -> int:
+    from buildsocial.db.session import engine
+    from buildsocial.worker import WorkerDeps, process_one, run_forever
+
+    no_trace = argparse.Namespace(no_trace=False)
+    deps = WorkerDeps(cache=store(), tracer_for=lambda run_id: new_tracer(no_trace, f"run_{str(run_id)[:8]}"))
+    try:
+        if args.once:
+            if await process_one(deps) is None:
+                print("no queued runs")
+        else:
+            await run_forever(deps, poll_seconds=args.poll)
+    finally:
+        await engine().dispose()
+    return 0
+
+
+async def import_brands(files: list[Path]) -> int:
+    from buildsocial.db import brands as brand_ops
+    from buildsocial.db.session import engine, session
+
+    profiles = [load_brand(f) for f in files]  # validate every file before writing anything
+    async with session() as db:
+        org = await brand_ops.default_org(db)
+        for f, profile in zip(files, profiles):
+            brand, created = await brand_ops.upsert_brand(db, org, profile)
+            print(f"{'created' if created else 'updated'}: {brand.name} ({brand.id})  <- {f}")
+    await engine().dispose()
     return 0
 
 

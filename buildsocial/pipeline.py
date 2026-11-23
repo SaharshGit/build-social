@@ -16,7 +16,7 @@ generic harness pipeline can be extracted once a second pipeline shows what it n
 """
 
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
 from datetime import date
 from typing import Any
@@ -82,20 +82,37 @@ class PipelineResult:
         return _totals(self.steps)
 
 
+# Called when a step starts (summary=None) and when it finishes (summary = StepRecord.summary()).
+# The worker uses it to write live progress into the runs table; the CLI doesn't need it.
+ProgressFn = Callable[[str, dict[str, Any] | None], Awaitable[None]]
+
+
 class StepRunner:
     """Runs agents with the right client, pricing and tracer, and records each step."""
 
-    def __init__(self, tracer: Tracer, client_for: Callable[[str], LLMClient], pricing_for: Callable[[str], Pricing]):
+    def __init__(
+        self,
+        tracer: Tracer,
+        client_for: Callable[[str], LLMClient],
+        pricing_for: Callable[[str], Pricing],
+        on_progress: ProgressFn | None = None,
+    ):
         self.tracer, self.client_for, self.pricing_for = tracer, client_for, pricing_for
+        self.on_progress = on_progress
         self.steps: list[StepRecord] = []
 
     async def __call__(self, agent: Any, agent_input: Any, label: str | None = None) -> Any:
+        label = label or getattr(agent, "label", agent.name)  # how the step is shown (e.g. market_research)
+        if self.on_progress:
+            await self.on_progress(label, None)
         pricing = self.pricing_for(agent.name)  # agent.name = which model (models.yaml)
         started = time.perf_counter()
         async with self.client_for(agent.name) as llm:
             result = await agent.run(agent_input, llm, self.tracer.scoped(pricing.cost, pricing.currency))
-        label = label or getattr(agent, "label", agent.name)  # how the step is shown (e.g. market_research)
-        self.steps.append(StepRecord(label, result, pricing, time.perf_counter() - started))
+        record = StepRecord(label, result, pricing, time.perf_counter() - started)
+        self.steps.append(record)
+        if self.on_progress:
+            await self.on_progress(label, record.summary())
         return result.output
 
 
@@ -156,6 +173,7 @@ async def run_pipeline(
     tracer: Tracer | None = None,
     client_for: Callable[[str], LLMClient] = get_client,
     pricing_for: Callable[[str], Pricing] = default_pricing,
+    on_progress: ProgressFn | None = None,
 ) -> PipelineResult:
     """Run the agents in order.
 
@@ -165,7 +183,7 @@ async def run_pipeline(
     client_for / pricing_for: model alias -> LLM client / prices; tests pass fakes.
     """
     tracer = tracer or Tracer()
-    run = StepRunner(tracer, client_for, pricing_for)
+    run = StepRunner(tracer, client_for, pricing_for, on_progress)
     started = time.perf_counter()
     tracer.event("pipeline_start", brand=brand.name, brief=brief, research_from_file=research is not None)
 
@@ -238,13 +256,14 @@ async def revise_with_feedback(
     tracer: Tracer | None = None,
     client_for: Callable[[str], LLMClient] = get_client,
     pricing_for: Callable[[str], Pricing] = default_pricing,
+    on_progress: ProgressFn | None = None,
 ) -> PipelineResult:
     """Apply a person's feedback: revise the draft (also fixing any still-open review issues), review again.
 
     Same path as the reviewer's revisions, so the code checks and the re-review still apply.
     """
     tracer = tracer or Tracer()
-    run = StepRunner(tracer, client_for, pricing_for)
+    run = StepRunner(tracer, client_for, pricing_for, on_progress)
     round_no = sum(1 for s in result.steps if s.agent.startswith("feedback_revision")) + 1
     tracer.event("human_feedback", round=round_no, feedback=feedback)
 
