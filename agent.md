@@ -40,5 +40,9 @@
 - Done: runtime data on GCS bucket `gs://build-social` (BUILDSOCIAL_STORAGE=gcs; key as one-line GCS_CREDENTIALS_JSON
   in .env, service account with Storage Object Admin on that bucket only). Local research cache, posts and eval
   results copied up; old local traces still only on the laptop.
+- API phase (branch `sg/api`): Step 1 done: Postgres in Docker (`docker compose up -d`, 127.0.0.1 only),
+  tables organizations/brands/runs/posts (`buildsocial/db/models.py`), Alembic migrations in `migrations/`
+  (`uv run alembic upgrade head`). DATABASE_URL in .env; only it changes for Cloud SQL later.
+  Next: Step 2, FastAPI skeleton + /health + brand endpoints.
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.

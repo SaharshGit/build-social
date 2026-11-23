@@ -6,11 +6,14 @@ readme = "README.md"
 requires-python = ">=3.12"
 # Dependencies are added one at a time, as each build step needs them.
 dependencies = [
+    "alembic>=1.20.1",
+    "asyncpg>=0.32.0",
     "google-cloud-storage>=3.17.1",
     "httpx>=0.28.1",
     "pydantic>=2.14.3",
     "python-dotenv>=1.2.4",
     "pyyaml>=6.0.3",
+    "sqlalchemy[asyncio]>=2.1.9",
 ]
 
 # Installs a `buildsocial` command that calls buildsocial.cli.main()
