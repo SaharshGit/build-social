@@ -136,6 +136,10 @@ def main(argv: list[str] | None = None) -> int:
     api.add_argument("--port", type=int, default=8000)
     api.add_argument("--reload", action="store_true", help="restart automatically when code changes")
 
+    wk = commands.add_parser("worker", help="process queued pipeline runs (started via the API)")
+    wk.add_argument("--once", action="store_true", help="process at most one queued run, then exit")
+    wk.add_argument("--poll", type=float, default=2.0, help="seconds between queue checks when idle")
+
     imp = commands.add_parser("import-brands", help="load brand YAML files into the database (create or update)")
     imp.add_argument("files", nargs="+", type=Path)
 
@@ -153,6 +157,8 @@ def main(argv: list[str] | None = None) -> int:
 
             uvicorn.run("buildsocial.api.app:app", host=args.host, port=args.port, reload=args.reload)
             return 0
+        if args.command == "worker":
+            return asyncio.run(run_worker(args))
         if args.command == "import-brands":
             return asyncio.run(import_brands(args.files))
         if args.command == "eval":
@@ -409,6 +415,23 @@ async def run_evals(args: argparse.Namespace) -> int:
     print(evals.format_results(results))
     key = evals.save_results(results, args.label, store())
     print(f"\nSaved: {store().location(key)}", file=sys.stderr)
+    return 0
+
+
+async def run_worker(args: argparse.Namespace) -> int:
+    from buildsocial.db.session import engine
+    from buildsocial.worker import WorkerDeps, process_one, run_forever
+
+    no_trace = argparse.Namespace(no_trace=False)
+    deps = WorkerDeps(cache=store(), tracer_for=lambda run_id: new_tracer(no_trace, f"run_{str(run_id)[:8]}"))
+    try:
+        if args.once:
+            if await process_one(deps) is None:
+                print("no queued runs")
+        else:
+            await run_forever(deps, poll_seconds=args.poll)
+    finally:
+        await engine().dispose()
     return 0
 
 

@@ -46,6 +46,10 @@
   Step 2 done: FastAPI app (`buildsocial/api/`), GET /health, brand CRUD at /brands (body = BrandProfile),
   `buildsocial api` (http://127.0.0.1:8000/docs), `buildsocial import-brands examples/*.yaml`.
   No login yet: one default organization. API tests use in-memory SQLite (tests/conftest.py).
-  Next: Step 3, runs + worker (queued -> running -> done, progress in the runs table).
+  Step 3 done: POST /brands/{id}/runs (202, queued), GET /runs/{id} (live progress), GET /runs;
+  `buildsocial worker` claims runs with SELECT ... FOR UPDATE SKIP LOCKED, runs the pipeline with an
+  on_progress callback, saves the post (status pending) or the error; stuck runs failed on restart.
+  Verified end to end on Postgres + real models (~16s, ~INR 0.14).
+  Next: Step 4, post endpoints (list/get/approve/reject/revise; revision runs in the worker).
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.

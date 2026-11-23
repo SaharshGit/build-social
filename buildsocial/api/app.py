@@ -2,12 +2,12 @@
 
 Run:   uv run buildsocial api            (then open http://127.0.0.1:8000/docs)
 The API only reads and writes the database; slow work (pipeline runs) will be done by a
-separate worker process (step 3), so every request returns quickly.
+separate worker process (`buildsocial worker`), so every request returns quickly.
 """
 
 from fastapi import FastAPI
 
-from buildsocial.api.routes import brands, health
+from buildsocial.api.routes import brands, health, runs
 
 
 def create_app() -> FastAPI:
@@ -19,6 +19,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(health.router)
     app.include_router(brands.router)
+    app.include_router(runs.router)
     return app
 
 
