@@ -43,6 +43,9 @@
 - API phase (branch `sg/api`): Step 1 done: Postgres in Docker (`docker compose up -d`, 127.0.0.1 only),
   tables organizations/brands/runs/posts (`buildsocial/db/models.py`), Alembic migrations in `migrations/`
   (`uv run alembic upgrade head`). DATABASE_URL in .env; only it changes for Cloud SQL later.
-  Next: Step 2, FastAPI skeleton + /health + brand endpoints.
+  Step 2 done: FastAPI app (`buildsocial/api/`), GET /health, brand CRUD at /brands (body = BrandProfile),
+  `buildsocial api` (http://127.0.0.1:8000/docs), `buildsocial import-brands examples/*.yaml`.
+  No login yet: one default organization. API tests use in-memory SQLite (tests/conftest.py).
+  Next: Step 3, runs + worker (queued -> running -> done, progress in the runs table).
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.

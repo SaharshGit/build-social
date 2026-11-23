@@ -8,12 +8,14 @@ requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.20.1",
     "asyncpg>=0.32.0",
+    "fastapi>=0.165.0",
     "google-cloud-storage>=3.17.1",
     "httpx>=0.28.1",
     "pydantic>=2.14.3",
     "python-dotenv>=1.2.4",
     "pyyaml>=6.0.3",
     "sqlalchemy[asyncio]>=2.1.9",
+    "uvicorn[standard]>=0.54.0",
 ]
 
 # Installs a `buildsocial` command that calls buildsocial.cli.main()
@@ -26,6 +28,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "aiosqlite>=0.22.1",
     "pytest>=9.2.0",
     "pytest-asyncio>=1.5.0",
 ]
