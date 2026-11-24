@@ -230,3 +230,9 @@ code { font-size: 0.85em; background: var(--bg); padding: 0.1rem 0.3rem; border-
   .sidebar { height: auto; position: static; }
   .chat { height: auto; min-height: 70vh; }
 }
+.icon-btn { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 1rem; padding: 0.2rem 0.35rem; border-radius: 6px; }
+.icon-btn:hover { background: var(--bg); color: var(--text); }
+.rename { flex: 1; }
+.rename input { width: 100%; font-size: 1.05rem; font-weight: 600; }
+.link-btn { background: none; border: none; padding: 0; color: var(--accent); cursor: pointer; font-size: 0.85rem; text-decoration: underline; }
+.link-btn:disabled { color: var(--muted); cursor: default; }

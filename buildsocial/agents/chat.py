@@ -38,6 +38,11 @@ class ChatDecision(BaseModel):
     # revise_post / reject_post
     feedback: str | None = Field(default=None, description="revise_post: what should change, in the user's words")
     reason: str | None = Field(default=None, description="reject_post: the user's reason, if they gave one")
+    # revise / approve / reject / answer / clarify
+    post_number: int | None = Field(
+        default=None, ge=1,
+        description="If the user means a post from the last list (e.g. 'the second one'), its number there; "
+                    "empty = the post this chat is about")
     # always
     reply: str = Field(description="What to say to the user, short and friendly")
 
@@ -66,11 +71,22 @@ class ChatPost(BaseModel):
     open_issues: list[str]  # "type: quote: problem"
 
 
+class ChatListedPost(BaseModel):
+    """A post from the last list shown in the chat (a lookup's list_posts result)."""
+
+    brand: str
+    platform: str
+    status: str
+    topic: str
+    revision_in_progress: bool = False
+
+
 class ChatInput(BaseModel):
     brands: list[ChatBrand]
     chat_brand: str | None  # the brand chosen for this chat
     post: ChatPost | None
     run_in_progress: bool = False  # a post is being created right now
+    listed_posts: list[ChatListedPost] = []  # the last list of posts shown, numbered from 1
     history: list[str]  # recent messages, oldest first: "user: ..." / "assistant: ..."
     message: str
 
@@ -110,6 +126,11 @@ class ChatAgent(Agent[ChatInput, ChatDecision]):
             lines += ["# The post this chat is about", "(none yet)", ""]
         if input.run_in_progress:
             lines += ["A post is being created right now (not finished yet).", ""]
+        if input.listed_posts:
+            lines += ["# Posts in the last list shown (refer to them with post_number)",
+                      *[f"{i}. {p.brand} | {p.platform} | {p.status}"
+                        f"{' (revision in progress)' if p.revision_in_progress else ''} | {p.topic}"
+                        for i, p in enumerate(input.listed_posts, 1)], ""]
         lines += ["# Conversation so far", *(input.history or ["(this is the first message)"]), "",
                   "# The user's new message", input.message]
         return "\n".join(lines)
@@ -134,12 +155,17 @@ class ChatAgent(Agent[ChatInput, ChatDecision]):
             if input.run_in_progress:
                 errors.append("create_post: a post is already being created in this chat; tell the user to wait")
 
-        if a in ("revise_post", "approve_post", "reject_post"):
-            if input.post is None:
+        n = output.post_number
+        if n is not None and n > len(input.listed_posts):
+            errors.append(f"post_number: {n} isn't in the last list ({len(input.listed_posts)} posts); "
+                          "leave it empty or clarify")
+        elif a in ("revise_post", "approve_post", "reject_post"):
+            target = input.listed_posts[n - 1] if n else input.post
+            if target is None:
                 errors.append(f"{a}: this chat has no post yet; use clarify or create_post instead")
-            elif input.post.status != "pending":
-                errors.append(f"{a}: the post is already {input.post.status}; use answer to tell the user")
-            elif input.post.revision_in_progress:
+            elif target.status != "pending":
+                errors.append(f"{a}: the post is already {target.status}; use answer to tell the user")
+            elif target.revision_in_progress:
                 errors.append(f"{a}: a revision is in progress; use answer to tell the user to wait")
         if a == "lookup":
             names = {b.name.lower() for b in input.brands}

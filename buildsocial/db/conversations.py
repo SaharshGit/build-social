@@ -62,3 +62,9 @@ async def recent_messages(db: AsyncSession, conv: Conversation, limit: int = 20)
         select(Message).where(Message.conversation_id == conv.id).order_by(Message.created_at.desc()).limit(limit)
     )
     return list(reversed(list(result.scalars())))
+
+
+async def delete_conversation(db: AsyncSession, conv: Conversation) -> None:
+    """Delete a chat and its messages (posts and runs it started are kept)."""
+    await db.delete(conv)  # messages go too (cascade on the relationship)
+    await db.flush()

@@ -5,6 +5,7 @@ isn't allowed. No API calls, no cost."""
 import json
 import uuid
 
+from buildsocial.chat import short_title
 from buildsocial.db.models import Run, RunKind, RunStatus
 from buildsocial.harness.llm.base import LLMError
 from buildsocial.worker import process_one
@@ -52,7 +53,7 @@ async def test_create_post_queues_a_run_and_titles_the_chat(client, chat, db_mak
 
     c = (await client.get(f"/conversations/{conv}")).json()
     assert c["brand_id"] == brand_id  # naming the brand sets it for the chat
-    assert c["title"] == "Make an instagram post about monsoon evenings for Brew House"
+    assert c["title"] == "Make an instagram post about monsoon evenings for…"
     assert [m["role"] for m in c["messages"]] == ["user", "assistant"]
 
 
@@ -150,3 +151,43 @@ async def test_empty_message_and_unknown_chat(client, chat):
     assert (await client.post(f"/conversations/{conv}/messages", json={"text": "  "})).status_code == 422
     r = await client.post(f"/conversations/{uuid.uuid4()}/messages", json={"text": "hi"})
     assert r.status_code == 404
+
+
+async def test_act_on_a_post_from_a_list(client, chat, db_maker):
+    conv = await new_chat(client, await create_brand(client))
+    post_id = await make_post(client, chat, db_maker, conv)
+
+    # A list is shown; "approve the first one" points at it by number.
+    chat(decision("lookup", "Let me check.", tool="list_posts", status="pending"),
+         json.dumps({"reply": "One pending post: monsoon."}))
+    await say(client, conv, "show pending posts")
+    q = chat(decision("approve_post", "Approved.", post_number=3),  # not in the list -> sent back
+             decision("approve_post", "Approved.", post_number=1))
+    turn = await say(client, conv, "approve the first one")
+    assert q == [] and turn["assistant"]["attachments"] == [{"type": "post", "id": post_id}]
+    assert (await client.get(f"/posts/{post_id}")).json()["status"] == "approved"
+
+
+async def test_show_a_listed_post(client, chat, db_maker):
+    conv = await new_chat(client, await create_brand(client))
+    post_id = await make_post(client, chat, db_maker, conv)
+    chat(decision("lookup", "Let me check.", tool="list_posts"), json.dumps({"reply": "One post."}))
+    await say(client, conv, "list posts")
+    chat(decision("answer", "Here it is.", post_number=1))
+    turn = await say(client, conv, "show me the first one")
+    assert turn["assistant"]["attachments"] == [{"type": "post", "id": post_id}]
+
+
+async def test_delete_chat_keeps_posts(client, chat, db_maker):
+    conv = await new_chat(client, await create_brand(client))
+    post_id = await make_post(client, chat, db_maker, conv)
+    assert (await client.delete(f"/conversations/{conv}")).status_code == 204
+    assert (await client.get(f"/conversations/{conv}")).status_code == 404
+    assert (await client.get(f"/posts/{post_id}")).status_code == 200
+    assert (await client.delete(f"/conversations/{conv}")).status_code == 404
+
+
+def test_short_title():
+    assert short_title("How many posts are pending?") == "How many posts are pending?"
+    t = short_title("Create an Instagram post about monsoon evenings at our cafe in Bengaluru, please")
+    assert t == "Create an Instagram post about monsoon evenings…"

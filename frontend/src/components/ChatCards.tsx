@@ -15,14 +15,15 @@ import RunProgress, { formatCost } from './RunProgress'
 
 export type Attachment = { type: string; id?: string; [key: string]: unknown }
 
-export default function ChatCard({ attachment }: { attachment: Attachment }) {
+// onSend: send a chat message (e.g. "Show me post 2"); undefined while a message is being sent.
+export default function ChatCard({ attachment, onSend }: { attachment: Attachment; onSend?: (text: string) => void }) {
   switch (attachment.type) {
     case 'run':
       return <RunCard runId={attachment.id!} />
     case 'post':
       return <PostCard postId={attachment.id!} />
     case 'data':
-      return <DataCard query={attachment.query as Query} result={attachment.result as Result} />
+      return <DataCard query={attachment.query as Query} result={attachment.result as Result} onSend={onSend} />
     case 'error':
       return <div className="muted small">Details: {String(attachment.message ?? '')}</div>
     default:
@@ -93,7 +94,7 @@ const TOOL_LABELS: Record<string, string> = {
 }
 
 /** What a data answer was based on: posts as links, other results as a small table. */
-function DataCard({ query, result }: { query: Query; result: Result }) {
+function DataCard({ query, result, onSend }: { query: Query; result: Result; onSend?: (text: string) => void }) {
   const filters = Object.entries(query)
     .filter(([k]) => k !== 'tool')
     .map(([k, v]) => `${k}: ${v}`)
@@ -110,11 +111,15 @@ function DataCard({ query, result }: { query: Query; result: Result }) {
           <p className="muted">No posts.</p>
         ) : (
           <ul className="data-posts">
-            {result.posts.map((p) => (
+            {result.posts.map((p, i) => (
               <li key={p.id}>
                 <Link to={`/posts/${p.id}`}>{p.topic}</Link>{' '}
                 <span className="muted">· {p.brand} · {PLATFORM_LABELS[p.platform] ?? p.platform} · {p.created}</span>{' '}
-                <StatusBadge status={p.status} />
+                <StatusBadge status={p.status} />{' '}
+                <button className="link-btn" disabled={!onSend} title="Show this post in the chat"
+                        onClick={() => onSend?.(`Show me post ${i + 1} (${p.topic})`)}>
+                  open here
+                </button>
               </li>
             ))}
           </ul>

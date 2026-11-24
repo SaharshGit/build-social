@@ -14,7 +14,8 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from buildsocial.agents.chat import (
-    ChatAgent, ChatBrand, ChatDecision, ChatInput, ChatPost, DataAnswerAgent, DataAnswerInput, resolve_brand,
+    ChatAgent, ChatBrand, ChatDecision, ChatInput, ChatListedPost, ChatPost, DataAnswerAgent, DataAnswerInput,
+    resolve_brand,
 )
 from buildsocial.chat_data import run_query
 from buildsocial.db import brands as brand_ops
@@ -51,18 +52,23 @@ async def handle_message(
     history = await conv_ops.recent_messages(db, conv, HISTORY_MESSAGES)
     user_msg = await conv_ops.add_message(db, conv, MessageRole.USER, text)
     if conv.title == "New chat":
-        conv.title = text.strip()[:60] or "New chat"
+        conv.title = short_title(text)
 
     brands = await brand_ops.list_brands(db, org)
     chat_brands = [ChatBrand(name=b.name, industry=b.industry, market=b.market) for b in brands]
     chat_brand = next((b.name for b in brands if b.id == conv.brand_id), None)
     post, run_active = await _current_post(db, history)
+    listed = await _listed_posts(db, history, brands)
 
     chat_input = ChatInput(
         brands=chat_brands,
         chat_brand=chat_brand,
         post=await _describe(db, post) if post else None,
         run_in_progress=run_active,
+        listed_posts=[ChatListedPost(brand=next(b.name for b in brands if b.id == p.brand_id), platform=p.platform,
+                                     status=p.status, topic=p.topic,
+                                     revision_in_progress=await post_ops.active_revision(db, p.id) is not None)
+                      for p in listed],
         history=[_history_line(m) for m in history],
         message=text,
     )
@@ -76,6 +82,8 @@ async def handle_message(
             if decision.action == "lookup":
                 reply, attachments = await _lookup(db, org, decision, chat_brand, text, llm, scoped)
             else:
+                if decision.post_number:  # "the second one": a post from the last list
+                    post = listed[decision.post_number - 1]
                 reply, attachments = await _act(db, org, conv, brands, post, decision)
     except (AgentError, LLMError) as e:
         reply, attachments = (
@@ -127,6 +135,8 @@ async def _act(
         except post_ops.InvalidTransition as e:
             return f"I can't do that: {e}.", [{"type": "post", "id": str(post.id)}]
 
+    if d.post_number and post is not None:  # answer about a listed post: show it (it becomes the chat's post)
+        return d.reply, [{"type": "post", "id": str(post.id)}]
     return d.reply, []  # answer / clarify: just the reply
 
 
@@ -170,6 +180,17 @@ async def _current_post(db: AsyncSession, history: list[Message]) -> tuple[Post 
     return None, False
 
 
+async def _listed_posts(db: AsyncSession, history: list[Message], brands: list[Brand]) -> list[Post]:
+    """The posts in the newest list shown in this chat (a list_posts lookup), in the same order."""
+    org_brand_ids = {b.id for b in brands}
+    for msg in reversed(history):
+        for a in reversed(msg.attachments or []):
+            if a.get("type") == "data" and "posts" in (a.get("result") or {}):
+                posts = [await db.get(Post, uuid.UUID(p["id"])) for p in a["result"]["posts"]]
+                return [p for p in posts if p is not None and p.brand_id in org_brand_ids]
+    return []
+
+
 async def _describe(db: AsyncSession, post: Post) -> ChatPost:
     """What the chat agent is told about the current post."""
     facts = []
@@ -188,6 +209,14 @@ async def _describe(db: AsyncSession, post: Post) -> ChatPost:
         facts=facts,
         open_issues=issues,
     )
+
+
+def short_title(text: str, limit: int = 50) -> str:
+    """The first message, cut at a word boundary: "Create an Instagram post about…"."""
+    text = " ".join(text.split())
+    if len(text) <= limit:
+        return text or "New chat"
+    return text[:limit].rsplit(" ", 1)[0].rstrip(",.;:") + "…"
 
 
 def _history_line(m: Message) -> str:

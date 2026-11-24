@@ -145,11 +145,12 @@ export function useCreateConversation() {
   })
 }
 
-export function useSetChatBrand(conversationId: string) {
+/** Change a chat's brand and/or title: send only what changes. */
+export function useUpdateConversation(conversationId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (brandId: string | null) =>
-      api<Conversation>(`/conversations/${conversationId}`, { method: 'PATCH', body: { brand_id: brandId } }),
+    mutationFn: (changes: { brand_id?: string | null; title?: string }) =>
+      api<Conversation>(`/conversations/${conversationId}`, { method: 'PATCH', body: changes }),
     onSuccess: (conv) => {
       queryClient.setQueryData(['conversation', conv.id], conv)
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
@@ -173,6 +174,17 @@ export function useSendMessage() {
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
       queryClient.invalidateQueries({ queryKey: ['posts'] })
       queryClient.invalidateQueries({ queryKey: ['post'] })
+    },
+  })
+}
+
+export function useDeleteConversation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (conversationId: string) => api<null>(`/conversations/${conversationId}`, { method: 'DELETE' }),
+    onSuccess: (_r, conversationId) => {
+      queryClient.removeQueries({ queryKey: ['conversation', conversationId] })
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
     },
   })
 }

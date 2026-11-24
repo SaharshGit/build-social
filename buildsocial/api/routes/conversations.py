@@ -61,6 +61,16 @@ async def update_conversation(conversation_id: uuid.UUID, body: ConversationIn,
     return ConversationOut.from_row(conv)
 
 
+@router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_conversation(conversation_id: uuid.UUID, db: AsyncSession = Depends(get_db),
+                              org: Organization = Depends(current_org)):
+    """Delete a chat. Posts and runs started from it are kept."""
+    conv = await conv_ops.get_conversation(db, org, conversation_id, with_messages=True)
+    if conv is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "conversation not found")
+    await conv_ops.delete_conversation(db, conv)
+
+
 @router.post("/{conversation_id}/messages", response_model=ChatTurnOut)
 async def send_message(conversation_id: uuid.UUID, body: MessageIn, db: AsyncSession = Depends(get_db),
                        org: Organization = Depends(current_org), deps: ChatDeps = Depends(get_chat_deps)):

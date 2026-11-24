@@ -4,7 +4,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import type { Message } from '../api/client'
-import { useBrands, useConversation, useCreateConversation, useSendMessage, useSetChatBrand } from '../api/hooks'
+import {
+  useBrands, useConversation, useCreateConversation, useDeleteConversation, useSendMessage, useUpdateConversation,
+} from '../api/hooks'
 import ChatCard, { type Attachment } from '../components/ChatCards'
 import { ErrorBox, Loading } from '../components/common'
 
@@ -22,7 +24,9 @@ export default function Chat() {
   const brands = useBrands()
   const create = useCreateConversation()
   const send = useSendMessage()
-  const setBrand = useSetChatBrand(conversationId ?? '')
+  const update = useUpdateConversation(conversationId ?? '')
+  const remove = useDeleteConversation()
+  const [renaming, setRenaming] = useState<string | null>(null) // the title being edited
   const [draft, setDraft] = useState('')
   const [newChatBrand, setNewChatBrand] = useState('') // brand picked before the chat exists
   const [pendingText, setPendingText] = useState<string | null>(null) // shown until the reply arrives
@@ -58,13 +62,44 @@ export default function Chat() {
   return (
     <section className="chat">
       <header className="chat-header">
-        <h1>{conversation.data?.title ?? 'New chat'}</h1>
+        {renaming !== null ? (
+          <form
+            className="rename"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (renaming.trim()) update.mutate({ title: renaming.trim() })
+              setRenaming(null)
+            }}
+          >
+            <input value={renaming} onChange={(e) => setRenaming(e.target.value)} autoFocus maxLength={200}
+                   onBlur={() => setRenaming(null)} onKeyDown={(e) => e.key === 'Escape' && setRenaming(null)} />
+          </form>
+        ) : (
+          <h1>{conversation.data?.title ?? 'New chat'}</h1>
+        )}
+        {conversation.data && renaming === null && (
+          <>
+            <button className="icon-btn" title="Rename chat" onClick={() => setRenaming(conversation.data!.title)}>✎</button>
+            <button
+              className="icon-btn"
+              title="Delete chat"
+              onClick={() => {
+                if (!confirm('Delete this chat? Posts created from it are kept.')) return
+                remove.mutate(conversation.data!.id, { onSuccess: () => navigate('/') })
+              }}
+            >
+              🗑
+            </button>
+          </>
+        )}
         <label className="brand-chip">
           Brand
           <select
             value={brandId}
-            disabled={setBrand.isPending}
-            onChange={(e) => (conversationId ? setBrand.mutate(e.target.value || null) : setNewChatBrand(e.target.value))}
+            disabled={update.isPending}
+            onChange={(e) =>
+              conversationId ? update.mutate({ brand_id: e.target.value || null }) : setNewChatBrand(e.target.value)
+            }
           >
             <option value="">(none yet)</option>
             {(brands.data ?? []).map((b) => (
@@ -92,7 +127,7 @@ export default function Chat() {
           </div>
         )}
 
-        {messages.map((m) => <ChatMessage key={m.id} message={m} />)}
+        {messages.map((m) => <ChatMessage key={m.id} message={m} onSend={sending ? undefined : submit} />)}
 
         {pendingText && (
           <>
@@ -130,13 +165,13 @@ export default function Chat() {
   )
 }
 
-function ChatMessage({ message }: { message: Message }) {
+function ChatMessage({ message, onSend }: { message: Message; onSend?: (text: string) => void }) {
   const attachments = (message.attachments ?? []) as Attachment[]
   return (
     <div className={`msg msg-${message.role}`}>
       <div className="bubble">{message.content}</div>
       {attachments.map((a, i) => (
-        <div key={i} className="msg-card"><ChatCard attachment={a} /></div>
+        <div key={i} className="msg-card"><ChatCard attachment={a} onSend={onSend} /></div>
       ))}
     </div>
   )

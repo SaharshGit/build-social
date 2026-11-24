@@ -76,6 +76,10 @@
   C4 done: chat is the home page (frontend/src/pages/Chat.tsx): / = new chat (conversation created on
   the first message), /chat/:id, chat list in the sidebar, brand picker, run/post/data/error cards
   (components/ChatCards.tsx; run cards poll and turn into the post with Approve/Revise/Reject).
-  Review queue moved to /queue. Next: C5 polish.
+  Review queue moved to /queue.
+  C5 done: post_number lets the chat act on a post from the last list ("approve the second one";
+  "open here" button sends "Show me post N"); DELETE /conversations/{id} (posts kept); rename and
+  delete in the chat header; titles cut at a word boundary (50 chars).
+  Next: brand creation in the app (no UI yet: YAML + `buildsocial import-brands`, or POST /brands).
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.
