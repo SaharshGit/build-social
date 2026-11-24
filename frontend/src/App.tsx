@@ -31,14 +31,21 @@ export default function App() {
   )
 }
 
-/** A dot showing whether the API (and its database) can be reached. */
+/** A dot showing whether the API and its database can be reached. */
 function ApiStatus() {
   const health = useHealth()
-  const ok = health.data?.status === 'ok'
-  const label = health.isLoading ? 'Connecting…' : ok ? 'API connected' : 'API unreachable'
+  const state = health.data
+  const label = health.isLoading
+    ? 'Connecting…'
+    : state === 'ok'
+      ? 'API connected'
+      : state === 'database-down'
+        ? 'Database unreachable'
+        : 'API unreachable'
+  const dot = health.isLoading ? 'dot-wait' : state === 'ok' ? 'dot-ok' : 'dot-bad'
   return (
     <div className="api-status" title="GET /health, checked every 15 seconds">
-      <span className={`dot ${health.isLoading ? 'dot-wait' : ok ? 'dot-ok' : 'dot-bad'}`} />
+      <span className={`dot ${dot}`} />
       {label}
     </div>
   )
