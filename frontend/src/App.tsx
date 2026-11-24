@@ -5,6 +5,7 @@ import NewPost from './pages/NewPost'
 import NotFound from './pages/NotFound'
 import PostDetail from './pages/PostDetail'
 import ReviewQueue from './pages/ReviewQueue'
+import RunPage from './pages/RunPage'
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="/" element={<ReviewQueue />} />
           <Route path="/posts/:postId" element={<PostDetail />} />
           <Route path="/new" element={<NewPost />} />
+          <Route path="/runs/:runId" element={<RunPage />} />
           <Route path="/brands" element={<Brands />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

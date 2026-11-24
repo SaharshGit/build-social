@@ -1,7 +1,7 @@
 // Data hooks: each screen asks for data through these. TanStack Query caches the
 // results, tracks loading/error states, and re-fetches when told something changed.
-import { useQuery } from '@tanstack/react-query'
-import { api, type BrandSummary, type Health, type Post, type PostSummary } from './client'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { api, type BrandSummary, type Brief, type Health, type Post, type PostSummary, type Run } from './client'
 
 export type HealthState = 'ok' | 'database-down' | 'api-down'
 
@@ -53,4 +53,59 @@ export function useBrands() {
 export function useBrandNames(): Record<string, string> {
   const brands = useBrands()
   return Object.fromEntries((brands.data ?? []).map((b) => [b.id, b.name]))
+}
+
+// ----------------------------------------------------------------------
+// Runs: polled every second until they finish
+// ----------------------------------------------------------------------
+
+export const isActive = (status?: string) => status === 'queued' || status === 'running'
+
+export function useRun(runId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['run', runId],
+    queryFn: () => api<Run>(`/runs/${runId}`),
+    enabled: !!runId,
+    // Poll while the worker is on it; stop automatically once the run is done or failed.
+    refetchInterval: (query) => (isActive(query.state.data?.status) ? 1000 : false),
+  })
+}
+
+// ----------------------------------------------------------------------
+// Mutations: things that change data. Afterwards, related cached data is marked
+// stale ("invalidated") so lists and pages refresh by themselves.
+// ----------------------------------------------------------------------
+
+export function useStartRun() {
+  return useMutation({
+    mutationFn: ({ brandId, brief }: { brandId: string; brief: Brief }) =>
+      api<Run>(`/brands/${brandId}/runs`, { method: 'POST', body: brief }),
+  })
+}
+
+export function useDecide(postId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ decision, reason }: { decision: 'approve' | 'reject'; reason?: string }) =>
+      api<Post>(`/posts/${postId}/${decision}`, { method: 'POST', body: reason ? { reason } : {} }),
+    onSuccess: (post) => {
+      queryClient.setQueryData(['post', postId], post) // show the new status immediately
+      queryClient.invalidateQueries({ queryKey: ['posts'] })
+    },
+  })
+}
+
+export function useRevise(postId: string) {
+  return useMutation({
+    mutationFn: (feedback: string) => api<Run>(`/posts/${postId}/revise`, { method: 'POST', body: { feedback } }),
+  })
+}
+
+/** Call when a run finishes: refresh the post it produced or revised, and the queue. */
+export function useRefreshAfterRun() {
+  const queryClient = useQueryClient()
+  return (postId?: string | null) => {
+    if (postId) queryClient.invalidateQueries({ queryKey: ['post', postId] })
+    queryClient.invalidateQueries({ queryKey: ['posts'] })
+  }
 }

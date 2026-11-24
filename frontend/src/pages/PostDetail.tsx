@@ -3,6 +3,7 @@ import type { Post } from '../api/client'
 import { useBrandNames, usePost } from '../api/hooks'
 import { ErrorBox, Loading, StatusBadge } from '../components/common'
 import Highlighted from '../components/Highlighted'
+import PostActions from '../components/PostActions'
 import { PLATFORM_LABELS, timeAgo } from '../lib/format'
 
 // facts/history/feedback are stored as free-form JSON on the backend; these describe their shape.
@@ -43,6 +44,7 @@ export default function PostDetail() {
         <span className="muted small">created {timeAgo(p.created_at)}</span>
       </div>
       <p className="muted">Topic: {p.topic}</p>
+      <PostActions post={p} />
 
       <div className="detail-grid">
         <div>
