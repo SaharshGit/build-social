@@ -80,6 +80,7 @@
   C5 done: post_number lets the chat act on a post from the last list ("approve the second one";
   "open here" button sends "Show me post N"); DELETE /conversations/{id} (posts kept); rename and
   delete in the chat header; titles cut at a word boundary (50 chars).
-  Next: brand creation in the app (no UI yet: YAML + `buildsocial import-brands`, or POST /brands).
+  Brand form done: /brands/new and /brands/:id/edit (frontend/src/pages/BrandForm.tsx) on the existing
+  POST/PUT /brands. Single-org demo for now; login + per-org visibility later (see roadmap).
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.

@@ -7,12 +7,17 @@ export default function Brands() {
   const brands = useBrands()
   return (
     <section>
-      <h1>Brands</h1>
+      <div className="detail-header">
+        <h1>Brands</h1>
+        <span className="spacer" />
+        <Link className="btn btn-primary" to="/brands/new">+ New brand</Link>
+      </div>
       {brands.isLoading && <Loading what="Loading brands" />}
       {brands.error && <ErrorBox error={brands.error} />}
       {brands.data?.length === 0 && (
         <p className="muted">
-          No brands yet. Import the examples with <code>uv run buildsocial import-brands examples/*.yaml</code>.
+          No brands yet. Add one with <strong>+ New brand</strong>, or import the examples with{' '}
+          <code>uv run buildsocial import-brands examples/*.yaml</code>.
         </p>
       )}
       <div className="card-list">

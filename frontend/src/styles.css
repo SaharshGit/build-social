@@ -236,3 +236,13 @@ code { font-size: 0.85em; background: var(--bg); padding: 0.1rem 0.3rem; border-
 .rename input { width: 100%; font-size: 1.05rem; font-weight: 600; }
 .link-btn { background: none; border: none; padding: 0; color: var(--accent); cursor: pointer; font-size: 0.85rem; text-decoration: underline; }
 .link-btn:disabled { color: var(--muted); cursor: default; }
+
+/* --- Brand form --- */
+.brand-form { max-width: 760px; }
+.brand-form h2 { margin-bottom: 0; }
+.brand-form .hint { margin: -0.4rem 0 0; }
+.product-fields { display: flex; flex-direction: column; gap: 0.6rem; margin: 0; }
+.product-fields .btn { align-self: flex-start; }
+.example-field { display: flex; gap: 0.4rem; align-items: flex-start; }
+.example-field textarea { flex: 1; }
+.detail-header .spacer { flex: 1; }

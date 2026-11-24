@@ -2,6 +2,7 @@ import { Link, NavLink, Route, Routes } from 'react-router'
 import { useConversations, useHealth } from './api/hooks'
 import { timeAgo } from './lib/format'
 import BrandDetail from './pages/BrandDetail'
+import BrandForm from './pages/BrandForm'
 import Chat from './pages/Chat'
 import Brands from './pages/Brands'
 import NewPost from './pages/NewPost'
@@ -34,6 +35,8 @@ export default function App() {
           <Route path="/runs/:runId" element={<RunPage />} />
           <Route path="/brands" element={<Brands />} />
           <Route path="/brands/:brandId" element={<BrandDetail />} />
+          <Route path="/brands/new" element={<BrandForm />} />
+          <Route path="/brands/:brandId/edit" element={<BrandForm />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

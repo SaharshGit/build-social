@@ -2,7 +2,7 @@
 // results, tracks loading/error states, and re-fetches when told something changed.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  api, type Brand, type BrandSummary, type Brief, type ChatTurn, type Conversation, type ConversationSummary,
+  api, type Brand, type BrandProfile, type BrandSummary, type Brief, type ChatTurn, type Conversation, type ConversationSummary,
   type Health, type Post, type PostSummary, type Run,
 } from './client'
 
@@ -114,7 +114,7 @@ export function useRefreshAfterRun() {
 }
 
 export function useBrand(brandId: string) {
-  return useQuery({ queryKey: ['brand', brandId], queryFn: () => api<Brand>(`/brands/${brandId}`) })
+  return useQuery({ queryKey: ['brand', brandId], queryFn: () => api<Brand>(`/brands/${brandId}`), enabled: !!brandId })
 }
 
 // ----------------------------------------------------------------------
@@ -185,6 +185,21 @@ export function useDeleteConversation() {
     onSuccess: (_r, conversationId) => {
       queryClient.removeQueries({ queryKey: ['conversation', conversationId] })
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    },
+  })
+}
+
+/** Create a brand (no brandId) or replace an existing one's profile. */
+export function useSaveBrand() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ brandId, profile }: { brandId?: string; profile: BrandProfile }) =>
+      brandId
+        ? api<Brand>(`/brands/${brandId}`, { method: 'PUT', body: profile })
+        : api<Brand>('/brands', { method: 'POST', body: profile }),
+    onSuccess: (brand) => {
+      queryClient.setQueryData(['brand', brand.id], brand)
+      queryClient.invalidateQueries({ queryKey: ['brands'] })
     },
   })
 }
