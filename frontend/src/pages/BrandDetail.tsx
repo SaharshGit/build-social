@@ -21,7 +21,8 @@ export default function BrandDetail() {
       </div>
       <div className="action-buttons" style={{ margin: '0.75rem 0 1rem' }}>
         <Link className="btn btn-primary" to={`/new?brand=${brand.data.id}`}>New post for {p.name}</Link>
-        <Link className="btn" to={`/?status=&brand=${brand.data.id}`}>All {p.name} posts</Link>
+        <Link className="btn" to={`/queue?status=&brand=${brand.data.id}`}>All {p.name} posts</Link>
+        <Link className="btn" to={`/brands/${brand.data.id}/edit`}>Edit brand</Link>
       </div>
 
       <div className="card small">

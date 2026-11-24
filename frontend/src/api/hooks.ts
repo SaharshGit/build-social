@@ -1,7 +1,10 @@
 // Data hooks: each screen asks for data through these. TanStack Query caches the
 // results, tracks loading/error states, and re-fetches when told something changed.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, type Brand, type BrandSummary, type Brief, type Health, type Post, type PostSummary, type Run } from './client'
+import {
+  api, type Brand, type BrandProfile, type BrandSummary, type Brief, type ChatTurn, type Conversation, type ConversationSummary,
+  type Health, type Post, type PostSummary, type Run,
+} from './client'
 
 export type HealthState = 'ok' | 'database-down' | 'api-down'
 
@@ -111,5 +114,92 @@ export function useRefreshAfterRun() {
 }
 
 export function useBrand(brandId: string) {
-  return useQuery({ queryKey: ['brand', brandId], queryFn: () => api<Brand>(`/brands/${brandId}`) })
+  return useQuery({ queryKey: ['brand', brandId], queryFn: () => api<Brand>(`/brands/${brandId}`), enabled: !!brandId })
+}
+
+// ----------------------------------------------------------------------
+// Chat
+// ----------------------------------------------------------------------
+
+export function useConversations() {
+  return useQuery({ queryKey: ['conversations'], queryFn: () => api<ConversationSummary[]>('/conversations') })
+}
+
+export function useConversation(conversationId: string | undefined) {
+  return useQuery({
+    queryKey: ['conversation', conversationId],
+    queryFn: () => api<Conversation>(`/conversations/${conversationId}`),
+    enabled: !!conversationId,
+  })
+}
+
+export function useCreateConversation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (brandId: string | null) =>
+      api<Conversation>('/conversations', { method: 'POST', body: brandId ? { brand_id: brandId } : {} }),
+    onSuccess: (conv) => {
+      queryClient.setQueryData(['conversation', conv.id], conv)
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    },
+  })
+}
+
+/** Change a chat's brand and/or title: send only what changes. */
+export function useUpdateConversation(conversationId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (changes: { brand_id?: string | null; title?: string }) =>
+      api<Conversation>(`/conversations/${conversationId}`, { method: 'PATCH', body: changes }),
+    onSuccess: (conv) => {
+      queryClient.setQueryData(['conversation', conv.id], conv)
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    },
+  })
+}
+
+/** Send a message; the reply (and any cards) arrive when the assistant has decided and acted. */
+export function useSendMessage() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ conversationId, text }: { conversationId: string; text: string }) =>
+      api<ChatTurn>(`/conversations/${conversationId}/messages`, { method: 'POST', body: { text } }),
+    onSuccess: (turn, { conversationId }) => {
+      // Show both messages right away, before the refetch below comes back.
+      queryClient.setQueryData<Conversation>(['conversation', conversationId], (old) =>
+        old ? { ...old, messages: [...old.messages, turn.user, turn.assistant] } : old,
+      )
+      // The reply may have changed the title or brand, approved a post, etc.: refresh what it can touch.
+      queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] })
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      queryClient.invalidateQueries({ queryKey: ['posts'] })
+      queryClient.invalidateQueries({ queryKey: ['post'] })
+    },
+  })
+}
+
+export function useDeleteConversation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (conversationId: string) => api<null>(`/conversations/${conversationId}`, { method: 'DELETE' }),
+    onSuccess: (_r, conversationId) => {
+      queryClient.removeQueries({ queryKey: ['conversation', conversationId] })
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    },
+  })
+}
+
+/** Create a brand (no brandId) or replace an existing one's profile. */
+export function useSaveBrand() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ brandId, profile }: { brandId?: string; profile: BrandProfile }) =>
+      brandId
+        ? api<Brand>(`/brands/${brandId}`, { method: 'PUT', body: profile })
+        : api<Brand>('/brands', { method: 'POST', body: profile }),
+    onSuccess: (brand) => {
+      queryClient.setQueryData(['brand', brand.id], brand)
+      queryClient.invalidateQueries({ queryKey: ['brands'] })
+    },
+  })
 }

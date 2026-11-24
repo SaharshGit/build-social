@@ -60,5 +60,27 @@
   F2-F5 done: review queue (filters in URL), post detail (flagged phrases highlighted, issues, plan, facts
   with sources, earlier drafts), approve / reject / revise with live progress, new post -> /runs/{id} live
   progress -> post, brands list + profile. Next: push sg/frontend + PR; then quality work.
+- Chat phase (branch `sg/chat`, from sg/frontend): plan = router agent (DeepSeek via Sarvam) choosing from fixed
+  actions (create/revise/approve/reject post, answer about a post, clarify) and READ-ONLY data tools (count/list
+  posts, run stats, spend, brand info; analytics later). Never model-written SQL; answers phrased only from tool
+  results. C1 done: conversations + messages tables (migration 873eef5502ca), /conversations endpoints.
+  C2 done: chat agent (agents/chat.py, DeepSeek; picks one action, check() rejects what can't be
+  done) + executor (buildsocial/chat.py, same db functions as the buttons) + POST
+  /conversations/{id}/messages (returns user + assistant message; run/post cards as attachments).
+  Live check: ~1 s/reply, ~INR 0.008/message.
+  C3 done: `lookup` action -> read-only data tools in buildsocial/chat_data.py (count_posts,
+  list_posts, run_stats, spend from runs.cost, brand_info; org-scoped, no model-written SQL) ->
+  DataAnswerAgent writes the reply from the result; check() rejects numbers not in the data;
+  fallback shows the data card. Lookup fields are flat (nested `query` object was skipped by
+  DeepSeek). Live: 5 questions, all correct first try, INR 0.05.
+  C4 done: chat is the home page (frontend/src/pages/Chat.tsx): / = new chat (conversation created on
+  the first message), /chat/:id, chat list in the sidebar, brand picker, run/post/data/error cards
+  (components/ChatCards.tsx; run cards poll and turn into the post with Approve/Revise/Reject).
+  Review queue moved to /queue.
+  C5 done: post_number lets the chat act on a post from the last list ("approve the second one";
+  "open here" button sends "Show me post N"); DELETE /conversations/{id} (posts kept); rename and
+  delete in the chat header; titles cut at a word boundary (50 chars).
+  Brand form done: /brands/new and /brands/:id/edit (frontend/src/pages/BrandForm.tsx) on the existing
+  POST/PUT /brands. Single-org demo for now; login + per-org visibility later (see roadmap).
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.

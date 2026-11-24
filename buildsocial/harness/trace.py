@@ -140,6 +140,20 @@ class MemoryTracer(Tracer):
 # ----------------------------------------------------------------------
 
 
+def tracer_for_storage(
+    store: "Storage", label: str, cost_fn: CostFn | None = None, currency: str | None = None
+) -> "FileTracer":
+    """A trace that ends up in `store`: written in place for a local folder, or written
+    to a local working copy and uploaded on close() for a cloud bucket."""
+    import tempfile
+
+    from buildsocial.harness.storage import LocalStorage
+
+    if isinstance(store, LocalStorage):
+        return FileTracer(store.root / TRACES_PREFIX, label, cost_fn, currency)
+    return FileTracer(Path(tempfile.gettempdir()) / "buildsocial-traces", label, cost_fn, currency, store=store)
+
+
 def parse_trace(text: str) -> list[dict[str, Any]]:
     return [json.loads(line) for line in text.splitlines() if line.strip()]
 

@@ -17,7 +17,6 @@ import argparse
 import asyncio
 import json
 import sys
-import tempfile
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -30,15 +29,15 @@ from buildsocial.agents.content import ContentAgent, ContentInput
 from buildsocial.harness.agent import AgentError, AgentResult
 from buildsocial.harness.llm.base import LLMError
 from buildsocial.harness.llm.registry import Pricing, get_client, resolve_model
-from buildsocial.harness.storage import LocalStorage, Storage, get_storage
+from buildsocial.harness.storage import Storage, get_storage
 from buildsocial.harness.trace import (
     TRACES_PREFIX,
-    FileTracer,
     Tracer,
     format_trace,
     latest_trace,
     parse_trace,
     summarize_spend,
+    tracer_for_storage,
 )
 from buildsocial import evals
 from buildsocial.output import save_post
@@ -77,12 +76,9 @@ def store() -> Storage:
 def new_tracer(args: argparse.Namespace, label: str, pricing: Pricing | None = None) -> Tracer:
     if getattr(args, "no_trace", False):
         return Tracer()  # records nothing
-    kw = {"cost_fn": pricing.cost, "currency": pricing.currency} if pricing else {}
-    s = store()
-    if isinstance(s, LocalStorage):
-        return FileTracer(s.root / TRACES_PREFIX, label, **kw)  # written in place
-    # Cloud: write a local working copy line by line, upload it when the run ends.
-    return FileTracer(Path(tempfile.gettempdir()) / "buildsocial-traces", label, store=s, **kw)
+    if pricing:
+        return tracer_for_storage(store(), label, pricing.cost, pricing.currency)
+    return tracer_for_storage(store(), label)
 
 
 def finish_tracer(tracer: Tracer) -> None:

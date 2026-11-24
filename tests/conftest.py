@@ -10,7 +10,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 from buildsocial.api.app import create_app
-from buildsocial.api.deps import get_db
+from buildsocial.api.deps import get_chat_deps, get_db
+from buildsocial.chat import ChatDeps
 from buildsocial.db.models import Base
 
 
@@ -43,3 +44,17 @@ async def client(db_maker):
     app.dependency_overrides[get_db] = test_db
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
+
+
+@pytest.fixture
+def chat(client):
+    """chat(*replies): script the chat assistant's next LLM replies (decisions, then answers)."""
+    from tests.test_api_runs import INR, scripted
+
+    def script(*replies):
+        client_for, queues = scripted(chat=list(replies))
+        client._transport.app.dependency_overrides[get_chat_deps] = lambda: ChatDeps(
+            client_for=client_for, pricing_for=lambda n: INR)
+        return queues["chat"]
+
+    return script

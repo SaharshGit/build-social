@@ -120,8 +120,10 @@ Later agents: Creative, Publishing, Analytics.
 ### Next
 
 - [ ] Quality: verify revision feedback was applied; reviewer over-flagging; LinkedIn voice for consumer brands
-- [ ] Frontend: review screen (queue -> post -> approve / revise) on top of the API
-- [ ] Login and multiple organizations (tables already carry organization_id)
+- [x] Frontend: review queue, post page, new post with live progress, brands (F1–F5)
+- [x] Chat as the home page: create / revise / approve / reject posts, data questions from read-only tools (C1–C5)
+- [ ] Brand onboarding: add/edit brand form in the app; later, draft a brand profile from its website via the chat (research model), reviewed in the same form
+- [ ] Login and multiple organizations: today a single-org demo (`current_org` always returns the default org; every query is already org-scoped). Later: users table, sign-in via a provider, `current_org` from the signed-in user, roles, per-brand access for agencies. Don't deploy publicly before this.
 - [ ] Scheduling, publishing (platform APIs), analytics, learning loop
 - [ ] Deployment (GCP: Cloud SQL via DATABASE_URL, the bucket for storage)
 
