@@ -6,25 +6,33 @@ to approve, missing topic...) so the model has to fix them before anything happe
 code that then acts (buildsocial/chat.py) uses the same functions as the API's buttons.
 """
 
+import json
+import re
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from buildsocial.chat_data import TOOLS_HELP, DataQuery, Tool
 from buildsocial.harness.agent import Agent
 from buildsocial.schemas import Goal, Platform
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
-Action = Literal["create_post", "revise_post", "approve_post", "reject_post", "answer", "clarify"]
+Action = Literal["create_post", "revise_post", "approve_post", "reject_post", "lookup", "answer", "clarify"]
 
 
 class ChatDecision(BaseModel):
     action: Action = Field(description="What to do. Exactly one action per message.")
-    # create_post
-    brand: str | None = Field(default=None, description="create_post: the brand's exact name from the list")
+    # lookup (flat fields: cheaper models fill these more reliably than a nested object)
+    tool: Tool | None = Field(default=None, description="lookup: which data tool to run")
+    status: Literal["pending", "approved", "rejected"] | None = Field(
+        default=None, description="lookup: only posts with this status")
+    days: int | None = Field(default=None, ge=1, le=365, description="lookup: only the last N days; empty = all time")
+    # create_post (brand and platform are also lookup filters)
+    brand: str | None = Field(default=None, description="create_post / lookup: the brand's exact name from the list")
     topic: str | None = Field(default=None, description="create_post: what the post is about")
-    platform: Platform | None = Field(default=None, description="create_post: instagram or linkedin")
+    platform: Platform | None = Field(default=None, description="create_post: instagram or linkedin; lookup: filter")
     goal: Goal | None = Field(default=None, description="create_post: engagement / awareness / sales / community")
     notes: str | None = Field(default=None, description="create_post: anything the post must mention or avoid")
     # revise_post / reject_post
@@ -32,6 +40,10 @@ class ChatDecision(BaseModel):
     reason: str | None = Field(default=None, description="reject_post: the user's reason, if they gave one")
     # always
     reply: str = Field(description="What to say to the user, short and friendly")
+
+    def query(self) -> DataQuery:
+        """The lookup's data query, from the flat fields."""
+        return DataQuery(tool=self.tool, brand=self.brand, status=self.status, platform=self.platform, days=self.days)
 
 
 class ChatBrand(BaseModel):
@@ -66,7 +78,7 @@ class ChatInput(BaseModel):
 class ChatAgent(Agent[ChatInput, ChatDecision]):
     name = "chat"
     output_type = ChatDecision
-    system_prompt = (PROMPTS_DIR / "chat.md").read_text()
+    system_prompt = (PROMPTS_DIR / "chat.md").read_text().replace("{tools}", TOOLS_HELP)
     max_output_tokens = 800
 
     def build_user_message(self, input: ChatInput) -> str:
@@ -129,6 +141,14 @@ class ChatAgent(Agent[ChatInput, ChatDecision]):
                 errors.append(f"{a}: the post is already {input.post.status}; use answer to tell the user")
             elif input.post.revision_in_progress:
                 errors.append(f"{a}: a revision is in progress; use answer to tell the user to wait")
+        if a == "lookup":
+            names = {b.name.lower() for b in input.brands}
+            if output.tool is None:
+                errors.append("lookup: set `tool` (count_posts, list_posts, run_stats, spend or brand_info)")
+            elif output.brand and output.brand.lower() not in names:
+                errors.append(f"brand: '{output.brand}' isn't one of the brands; use an exact name or leave it empty")
+            elif output.tool == "brand_info" and not (output.brand or input.chat_brand):
+                errors.append("lookup brand_info: say which brand, or use clarify to ask")
         if a == "revise_post" and not (output.feedback or "").strip():
             errors.append("revise_post: feedback is missing; use clarify to ask what should change")
         return errors
@@ -139,3 +159,50 @@ def resolve_brand(name: str | None, brands: list[ChatBrand]) -> str | None:
     if not name:
         return None
     return next((b.name for b in brands if b.name.lower() == name.lower()), None)
+
+
+# --- Answering from data ---------------------------------------------------------------
+
+class DataAnswer(BaseModel):
+    reply: str = Field(description="The answer, written only from the data")
+
+
+class DataAnswerInput(BaseModel):
+    question: str
+    result: dict[str, Any]
+
+
+NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
+
+
+def numbers_in(text: str) -> set[str]:
+    """Numbers as written, normalized: "1,200" -> "1200", "0.50" -> "0.5"."""
+    out = set()
+    for n in NUMBER.findall(text):
+        n = n.replace(",", "")
+        out.add(n.rstrip("0").rstrip(".") if "." in n else n)
+    return out
+
+
+class DataAnswerAgent(Agent[DataAnswerInput, DataAnswer]):
+    """Turns a data tool's result into a short reply. check() rejects any number that isn't
+    in the result (or the question), so it can't make up counts or costs."""
+
+    name = "chat"
+    output_type = DataAnswer
+    system_prompt = (PROMPTS_DIR / "chat_answer.md").read_text()
+    max_output_tokens = 500
+
+    def build_user_message(self, input: DataAnswerInput) -> str:
+        return f"# Question\n{input.question}\n\n# Data (the only source you may use)\n" + json.dumps(
+            input.result, indent=1, ensure_ascii=False)
+
+    def check(self, output: DataAnswer, input: DataAnswerInput) -> list[str]:
+        if not output.reply.strip():
+            return ["reply: must not be empty"]
+        allowed = numbers_in(json.dumps(input.result)) | numbers_in(input.question)
+        invented = sorted(numbers_in(output.reply) - allowed)
+        if invented:
+            return [f"reply: these numbers aren't in the data: {invented}. Use only numbers from the data, "
+                    "exactly as given; don't calculate new ones."]
+        return []

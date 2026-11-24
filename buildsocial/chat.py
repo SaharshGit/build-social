@@ -13,7 +13,10 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from buildsocial.agents.chat import ChatAgent, ChatBrand, ChatDecision, ChatInput, ChatPost, resolve_brand
+from buildsocial.agents.chat import (
+    ChatAgent, ChatBrand, ChatDecision, ChatInput, ChatPost, DataAnswerAgent, DataAnswerInput, resolve_brand,
+)
+from buildsocial.chat_data import run_query
 from buildsocial.db import brands as brand_ops
 from buildsocial.db import conversations as conv_ops
 from buildsocial.db import posts as post_ops
@@ -67,9 +70,13 @@ async def handle_message(
     tracer = deps.tracer_for(conv.id)
     try:
         pricing = deps.pricing_for(ChatAgent.name)
+        scoped = tracer.scoped(pricing.cost, pricing.currency)
         async with deps.client_for(ChatAgent.name) as llm:
-            result = await ChatAgent().run(chat_input, llm, tracer.scoped(pricing.cost, pricing.currency))
-        reply, attachments = await _act(db, org, conv, brands, post, result.output)
+            decision = (await ChatAgent().run(chat_input, llm, scoped)).output
+            if decision.action == "lookup":
+                reply, attachments = await _lookup(db, org, decision, chat_brand, text, llm, scoped)
+            else:
+                reply, attachments = await _act(db, org, conv, brands, post, decision)
     except (AgentError, LLMError) as e:
         reply, attachments = (
             "Sorry, I couldn't process that just now. Could you try again, or rephrase it?",
@@ -123,6 +130,24 @@ async def _act(
     return d.reply, []  # answer / clarify: just the reply
 
 
+async def _lookup(
+    db: AsyncSession, org: Organization, d: ChatDecision, chat_brand: str | None, question: str,
+    llm: LLMClient, tracer: Tracer,
+) -> tuple[str, list[dict[str, Any]]]:
+    """Run the data tool, then write the reply from its result only."""
+    query = d.query()
+    if query.tool == "brand_info" and not query.brand:
+        query = query.model_copy(update={"brand": chat_brand})
+    result = await run_query(db, org, query)
+    card = {"type": "data", "query": query.model_dump(exclude_none=True), "result": result}
+    try:
+        answer = await DataAnswerAgent().run(DataAnswerInput(question=question, result=result), llm, tracer)
+        return answer.output.reply, [card]
+    except AgentError:
+        # Couldn't write a reply that sticks to the data: show the data itself instead.
+        return "Here's what I found:", [card]
+
+
 async def _current_post(db: AsyncSession, history: list[Message]) -> tuple[Post | None, bool]:
     """The post this chat is about: from the newest message with a post or run card.
 
@@ -166,6 +191,6 @@ async def _describe(db: AsyncSession, post: Post) -> ChatPost:
 
 
 def _history_line(m: Message) -> str:
-    cards = {"run": "[started a run]", "post": "[showed the post]", "error": "[error]"}
+    cards = {"run": "[started a run]", "post": "[showed the post]", "data": "[showed data]", "error": "[error]"}
     extra = " ".join(cards.get(a.get("type"), "") for a in m.attachments or [])
     return f"{m.role}: {m.content}{(' ' + extra) if extra.strip() else ''}"

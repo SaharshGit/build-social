@@ -5,33 +5,14 @@ isn't allowed. No API calls, no cost."""
 import json
 import uuid
 
-import pytest
-
-from buildsocial.api.deps import get_chat_deps
-from buildsocial.chat import ChatDeps
 from buildsocial.db.models import Run, RunKind, RunStatus
 from buildsocial.harness.llm.base import LLMError
 from buildsocial.worker import process_one
-from tests.test_api_runs import INR, create_brand, happy_path, scripted, worker_deps
+from tests.test_api_runs import create_brand, happy_path, worker_deps
 
 
 def decision(action, reply="ok", **fields):
     return json.dumps({"action": action, "reply": reply, **fields})
-
-
-@pytest.fixture
-def chat(client):
-    """chat(*replies): script the chat agent's next replies for this test's app."""
-    queues = {}
-
-    def script(*replies):
-        client_for, q = scripted(chat=list(replies))
-        queues.update(q)
-        client._transport.app.dependency_overrides[get_chat_deps] = lambda: ChatDeps(
-            client_for=client_for, pricing_for=lambda n: INR)
-        return q["chat"]
-
-    return script
 
 
 async def new_chat(client, brand_id=None):

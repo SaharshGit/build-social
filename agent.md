@@ -67,6 +67,11 @@
   C2 done: chat agent (agents/chat.py, DeepSeek; picks one action, check() rejects what can't be
   done) + executor (buildsocial/chat.py, same db functions as the buttons) + POST
   /conversations/{id}/messages (returns user + assistant message; run/post cards as attachments).
-  Live check: ~1 s/reply, ~INR 0.008/message. Next: C3 read-only data tools, C4 chat page.
+  Live check: ~1 s/reply, ~INR 0.008/message.
+  C3 done: `lookup` action -> read-only data tools in buildsocial/chat_data.py (count_posts,
+  list_posts, run_stats, spend from runs.cost, brand_info; org-scoped, no model-written SQL) ->
+  DataAnswerAgent writes the reply from the result; check() rejects numbers not in the data;
+  fallback shows the data card. Lookup fields are flat (nested `query` object was skipped by
+  DeepSeek). Live: 5 questions, all correct first try, INR 0.05. Next: C4 chat page.
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.
