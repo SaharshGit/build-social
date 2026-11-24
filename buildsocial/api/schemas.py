@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from buildsocial.db.models import Brand, Post, Run
+from buildsocial.db.models import Brand, Conversation, Message, Post, Run
 from buildsocial.schemas import BrandProfile, ContentPlan, PostDraft, Review
 
 
@@ -126,3 +126,41 @@ class DecisionIn(BaseModel):
 
 class ReviseIn(BaseModel):
     feedback: str = Field(min_length=3, max_length=2000, description="What should change, in plain words")
+
+
+class MessageOut(BaseModel):
+    id: uuid.UUID
+    role: str  # user / assistant
+    content: str
+    attachments: list[dict[str, Any]]  # e.g. {"type": "run", "id": ...}, {"type": "post", "id": ...}
+    created_at: datetime
+
+    @classmethod
+    def from_row(cls, m: Message) -> "MessageOut":
+        return cls(id=m.id, role=m.role, content=m.content, attachments=m.attachments, created_at=m.created_at)
+
+
+class ConversationSummary(BaseModel):
+    id: uuid.UUID
+    title: str
+    brand_id: uuid.UUID | None
+    updated_at: datetime
+
+    @classmethod
+    def from_row(cls, c: Conversation) -> "ConversationSummary":
+        return cls(id=c.id, title=c.title, brand_id=c.brand_id, updated_at=c.updated_at)
+
+
+class ConversationOut(ConversationSummary):
+    messages: list[MessageOut]
+    created_at: datetime
+
+    @classmethod
+    def from_row(cls, c: Conversation) -> "ConversationOut":
+        return cls(id=c.id, title=c.title, brand_id=c.brand_id, updated_at=c.updated_at, created_at=c.created_at,
+                   messages=[MessageOut.from_row(m) for m in c.messages])
+
+
+class ConversationIn(BaseModel):
+    brand_id: uuid.UUID | None = None
+    title: str | None = Field(default=None, max_length=200)

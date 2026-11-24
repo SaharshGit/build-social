@@ -4,13 +4,15 @@
     brands         a brand profile (what examples/*.yaml hold today)
     runs           one pipeline job: the worker's queue and its progress
     posts          the output and its lifecycle (pending -> approved / rejected; later scheduled, published)
+    conversations  one chat thread with the BuildSocial assistant
+    messages       what was said in a conversation, in order, with attachments (run / post cards)
 
 Large, write-once data (traces, research cache, media) stays in the bucket, not here.
 Schema changes go through Alembic migrations (migrations/), never by editing tables by hand.
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any
 
@@ -118,3 +120,40 @@ class Post(Timestamps, Base):
     history: Mapped[list[Any]] = mapped_column(default=list)  # earlier drafts and their reviews
     feedback: Mapped[list[Any]] = mapped_column(default=list)  # what people asked to change
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # approved/rejected when
+
+
+class MessageRole(StrEnum):
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
+class Conversation(Timestamps, Base):
+    __tablename__ = "conversations"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=new_id)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    # The brand this chat is about (chosen at the top of the chat; the assistant can switch it).
+    brand_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("brands.id"))
+    title: Mapped[str] = mapped_column(String(200), default="New chat")
+
+    messages: Mapped[list["Message"]] = relationship(
+        back_populates="conversation", order_by="Message.created_at", cascade="all, delete-orphan"
+    )
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=new_id)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("conversations.id"), index=True)
+    role: Mapped[str] = mapped_column(String(20))  # user / assistant
+    content: Mapped[str] = mapped_column(Text)
+    # Rich cards shown with the message, e.g. [{"type": "run", "id": "..."}, {"type": "post", "id": "..."}]
+    attachments: Mapped[list[Any]] = mapped_column(default=list)
+    # Stamped in Python, not by the database: Postgres's now() is the same for everything in one
+    # transaction, so a question and its answer saved together would tie and could swap order.
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now()
+    )
+
+    conversation: Mapped[Conversation] = relationship(back_populates="messages")

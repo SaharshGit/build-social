@@ -60,5 +60,10 @@
   F2-F5 done: review queue (filters in URL), post detail (flagged phrases highlighted, issues, plan, facts
   with sources, earlier drafts), approve / reject / revise with live progress, new post -> /runs/{id} live
   progress -> post, brands list + profile. Next: push sg/frontend + PR; then quality work.
+- Chat phase (branch `sg/chat`, from sg/frontend): plan = router agent (DeepSeek via Sarvam) choosing from fixed
+  actions (create/revise/approve/reject post, answer about a post, clarify) and READ-ONLY data tools (count/list
+  posts, run stats, spend, brand info; analytics later). Never model-written SQL; answers phrased only from tool
+  results. C1 done: conversations + messages tables (migration 873eef5502ca), /conversations endpoints.
+  Next: C2 chat agent + POST /conversations/{id}/messages.
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.
