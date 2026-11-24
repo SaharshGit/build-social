@@ -64,6 +64,9 @@
   actions (create/revise/approve/reject post, answer about a post, clarify) and READ-ONLY data tools (count/list
   posts, run stats, spend, brand info; analytics later). Never model-written SQL; answers phrased only from tool
   results. C1 done: conversations + messages tables (migration 873eef5502ca), /conversations endpoints.
-  Next: C2 chat agent + POST /conversations/{id}/messages.
+  C2 done: chat agent (agents/chat.py, DeepSeek; picks one action, check() rejects what can't be
+  done) + executor (buildsocial/chat.py, same db functions as the buttons) + POST
+  /conversations/{id}/messages (returns user + assistant message; run/post cards as attachments).
+  Live check: ~1 s/reply, ~INR 0.008/message. Next: C3 read-only data tools, C4 chat page.
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.

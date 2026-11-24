@@ -1,13 +1,13 @@
-"""Conversation endpoints: chat threads with the BuildSocial assistant.
-(Sending a message and getting the assistant's reply is added in the next step.)"""
+"""Conversation endpoints: chat threads with the BuildSocial assistant."""
 
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from buildsocial.api.deps import current_org, get_db
-from buildsocial.api.schemas import ConversationIn, ConversationOut, ConversationSummary
+from buildsocial.api.deps import current_org, get_chat_deps, get_db
+from buildsocial.api.schemas import ChatTurnOut, ConversationIn, ConversationOut, ConversationSummary, MessageIn, MessageOut
+from buildsocial.chat import ChatDeps, handle_message
 from buildsocial.db import conversations as conv_ops
 from buildsocial.db.models import Organization
 
@@ -59,3 +59,20 @@ async def update_conversation(conversation_id: uuid.UUID, body: ConversationIn,
     await db.flush()
     conv = await conv_ops.get_conversation(db, org, conversation_id, with_messages=True)
     return ConversationOut.from_row(conv)
+
+
+@router.post("/{conversation_id}/messages", response_model=ChatTurnOut)
+async def send_message(conversation_id: uuid.UUID, body: MessageIn, db: AsyncSession = Depends(get_db),
+                       org: Organization = Depends(current_org), deps: ChatDeps = Depends(get_chat_deps)):
+    """Send a message; the assistant decides what to do, does it, and replies.
+
+    Waits for the assistant (a few seconds). If it started a post or a revision, the reply has a
+    {"type": "run"} attachment: poll GET /runs/{id} for progress, like the New post page.
+    """
+    conv = await conv_ops.get_conversation(db, org, conversation_id)
+    if conv is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "conversation not found")
+    if not body.text.strip():
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "message is empty")
+    user_msg, assistant_msg = await handle_message(db, org, conv, body.text.strip(), deps)
+    return ChatTurnOut(user=MessageOut.from_row(user_msg), assistant=MessageOut.from_row(assistant_msg))

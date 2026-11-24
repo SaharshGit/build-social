@@ -164,3 +164,14 @@ class ConversationOut(ConversationSummary):
 class ConversationIn(BaseModel):
     brand_id: uuid.UUID | None = None
     title: str | None = Field(default=None, max_length=200)
+
+
+class MessageIn(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
+
+
+class ChatTurnOut(BaseModel):
+    """One exchange: the user's saved message and the assistant's reply."""
+
+    user: MessageOut
+    assistant: MessageOut

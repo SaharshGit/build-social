@@ -71,5 +71,6 @@ agents:
   research: gemini-3.5-flash-lite
   reviewer: deepseek-v4.1-flash   # different model family from the writer (independent check)
   judge: deepseek-v4.1-flash      # evals only; cheap, and not the writer's model
+  chat: deepseek-v4.1-flash       # chat assistant: decides actions; fast and reliable
   # strategy: sarvam-105b
   # content:  sarvam-105b

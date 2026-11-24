@@ -5,9 +5,12 @@ from collections.abc import AsyncIterator
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from buildsocial.chat import ChatDeps
 from buildsocial.db import brands as brand_ops
 from buildsocial.db.models import Organization
 from buildsocial.db.session import session
+from buildsocial.harness.storage import get_storage
+from buildsocial.harness.trace import tracer_for_storage
 
 
 async def get_db() -> AsyncIterator[AsyncSession]:
@@ -22,3 +25,12 @@ async def get_db() -> AsyncIterator[AsyncSession]:
 async def current_org(db: AsyncSession = Depends(get_db)) -> Organization:
     """The organization making the request. No login yet, so it's always the default one."""
     return await brand_ops.default_org(db)
+
+
+def get_chat_deps() -> ChatDeps:
+    """The chat's LLM clients and tracing (traces go to the same local folder / bucket as the CLI's).
+
+    Tests replace this with fake LLMs.
+    """
+    store = get_storage()
+    return ChatDeps(tracer_for=lambda conversation_id: tracer_for_storage(store, f"chat_{str(conversation_id)[:8]}"))
