@@ -10,6 +10,10 @@ export type PostSummary = components['schemas']['PostSummary']
 export type Post = components['schemas']['PostOut']
 export type Brief = components['schemas']['PostBrief']
 export type Health = components['schemas']['Health']
+export type ConversationSummary = components['schemas']['ConversationSummary']
+export type Conversation = components['schemas']['ConversationOut']
+export type Message = components['schemas']['MessageOut']
+export type ChatTurn = components['schemas']['ChatTurnOut']
 
 /** An error the API returned, with its status code and FastAPI's "detail" message. */
 export class ApiError extends Error {

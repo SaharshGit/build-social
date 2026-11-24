@@ -36,7 +36,7 @@ export default function PostDetail() {
 
   return (
     <section>
-      <Link to="/" className="back-link">← Review queue</Link>
+      <Link to="/queue" className="back-link">← Review queue</Link>
       <div className="detail-header">
         <h1>{brandNames[p.brand_id] ?? 'Post'}</h1>
         <span className="muted">{PLATFORM_LABELS[p.platform] ?? p.platform}</span>

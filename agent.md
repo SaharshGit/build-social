@@ -72,6 +72,10 @@
   list_posts, run_stats, spend from runs.cost, brand_info; org-scoped, no model-written SQL) ->
   DataAnswerAgent writes the reply from the result; check() rejects numbers not in the data;
   fallback shows the data card. Lookup fields are flat (nested `query` object was skipped by
-  DeepSeek). Live: 5 questions, all correct first try, INR 0.05. Next: C4 chat page.
+  DeepSeek). Live: 5 questions, all correct first try, INR 0.05.
+  C4 done: chat is the home page (frontend/src/pages/Chat.tsx): / = new chat (conversation created on
+  the first message), /chat/:id, chat list in the sidebar, brand picker, run/post/data/error cards
+  (components/ChatCards.tsx; run cards poll and turn into the post with Approve/Revise/Reject).
+  Review queue moved to /queue. Next: C5 polish.
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.

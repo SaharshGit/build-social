@@ -1,7 +1,10 @@
 // Data hooks: each screen asks for data through these. TanStack Query caches the
 // results, tracks loading/error states, and re-fetches when told something changed.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, type Brand, type BrandSummary, type Brief, type Health, type Post, type PostSummary, type Run } from './client'
+import {
+  api, type Brand, type BrandSummary, type Brief, type ChatTurn, type Conversation, type ConversationSummary,
+  type Health, type Post, type PostSummary, type Run,
+} from './client'
 
 export type HealthState = 'ok' | 'database-down' | 'api-down'
 
@@ -112,4 +115,64 @@ export function useRefreshAfterRun() {
 
 export function useBrand(brandId: string) {
   return useQuery({ queryKey: ['brand', brandId], queryFn: () => api<Brand>(`/brands/${brandId}`) })
+}
+
+// ----------------------------------------------------------------------
+// Chat
+// ----------------------------------------------------------------------
+
+export function useConversations() {
+  return useQuery({ queryKey: ['conversations'], queryFn: () => api<ConversationSummary[]>('/conversations') })
+}
+
+export function useConversation(conversationId: string | undefined) {
+  return useQuery({
+    queryKey: ['conversation', conversationId],
+    queryFn: () => api<Conversation>(`/conversations/${conversationId}`),
+    enabled: !!conversationId,
+  })
+}
+
+export function useCreateConversation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (brandId: string | null) =>
+      api<Conversation>('/conversations', { method: 'POST', body: brandId ? { brand_id: brandId } : {} }),
+    onSuccess: (conv) => {
+      queryClient.setQueryData(['conversation', conv.id], conv)
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    },
+  })
+}
+
+export function useSetChatBrand(conversationId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (brandId: string | null) =>
+      api<Conversation>(`/conversations/${conversationId}`, { method: 'PATCH', body: { brand_id: brandId } }),
+    onSuccess: (conv) => {
+      queryClient.setQueryData(['conversation', conv.id], conv)
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    },
+  })
+}
+
+/** Send a message; the reply (and any cards) arrive when the assistant has decided and acted. */
+export function useSendMessage() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ conversationId, text }: { conversationId: string; text: string }) =>
+      api<ChatTurn>(`/conversations/${conversationId}/messages`, { method: 'POST', body: { text } }),
+    onSuccess: (turn, { conversationId }) => {
+      // Show both messages right away, before the refetch below comes back.
+      queryClient.setQueryData<Conversation>(['conversation', conversationId], (old) =>
+        old ? { ...old, messages: [...old.messages, turn.user, turn.assistant] } : old,
+      )
+      // The reply may have changed the title or brand, approved a post, etc.: refresh what it can touch.
+      queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] })
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      queryClient.invalidateQueries({ queryKey: ['posts'] })
+      queryClient.invalidateQueries({ queryKey: ['post'] })
+    },
+  })
 }
