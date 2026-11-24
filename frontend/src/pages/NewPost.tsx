@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import type { Brief } from '../api/client'
 import { useBrands, useStartRun } from '../api/hooks'
 import { ErrorBox, Loading } from '../components/common'
@@ -11,8 +11,9 @@ export default function NewPost() {
   const brands = useBrands()
   const start = useStartRun()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   // "Controlled inputs": each field's value lives in React state and the input shows it.
-  const [brandId, setBrandId] = useState('')
+  const [brandId, setBrandId] = useState(params.get('brand') ?? '') // preselected from a brand's page
   const [topic, setTopic] = useState('')
   const [platform, setPlatform] = useState<Brief['platform']>('instagram')
   const [goal, setGoal] = useState<NonNullable<Brief['goal']>>('engagement')

@@ -183,3 +183,9 @@ details .post-text { margin-top: 0.5rem; }
   display: inline-block; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* --- Brands --- */
+.donts li::marker { content: '✗  '; color: var(--bad); }
+blockquote.example { margin: 0 0 0.5rem; font-style: italic; }
+a.btn { text-decoration: none; display: inline-block; }
+code { font-size: 0.85em; background: var(--bg); padding: 0.1rem 0.3rem; border-radius: 4px; }

@@ -57,6 +57,8 @@
 - Frontend phase (branch `sg/frontend`): F1 done: React + Vite + TypeScript in `frontend/`, React Router,
   TanStack Query, types generated from the API (`npm run gen:api`), dev proxy /api -> :8000, sidebar layout +
   API status dot, placeholder pages. Plain CSS. WSL has only 3.8 GB RAM (builds can be killed when tight).
-  Next: F2 review queue + post detail (read only).
+  F2-F5 done: review queue (filters in URL), post detail (flagged phrases highlighted, issues, plan, facts
+  with sources, earlier drafts), approve / reject / revise with live progress, new post -> /runs/{id} live
+  progress -> post, brands list + profile. Next: push sg/frontend + PR; then quality work.
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.

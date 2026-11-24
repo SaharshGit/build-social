@@ -1,5 +1,6 @@
 import { NavLink, Route, Routes } from 'react-router'
 import { useHealth } from './api/hooks'
+import BrandDetail from './pages/BrandDetail'
 import Brands from './pages/Brands'
 import NewPost from './pages/NewPost'
 import NotFound from './pages/NotFound'
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/new" element={<NewPost />} />
           <Route path="/runs/:runId" element={<RunPage />} />
           <Route path="/brands" element={<Brands />} />
+          <Route path="/brands/:brandId" element={<BrandDetail />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

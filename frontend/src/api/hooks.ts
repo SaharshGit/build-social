@@ -1,7 +1,7 @@
 // Data hooks: each screen asks for data through these. TanStack Query caches the
 // results, tracks loading/error states, and re-fetches when told something changed.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, type BrandSummary, type Brief, type Health, type Post, type PostSummary, type Run } from './client'
+import { api, type Brand, type BrandSummary, type Brief, type Health, type Post, type PostSummary, type Run } from './client'
 
 export type HealthState = 'ok' | 'database-down' | 'api-down'
 
@@ -108,4 +108,8 @@ export function useRefreshAfterRun() {
     if (postId) queryClient.invalidateQueries({ queryKey: ['post', postId] })
     queryClient.invalidateQueries({ queryKey: ['posts'] })
   }
+}
+
+export function useBrand(brandId: string) {
+  return useQuery({ queryKey: ['brand', brandId], queryFn: () => api<Brand>(`/brands/${brandId}`) })
 }
