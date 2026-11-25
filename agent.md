@@ -84,3 +84,11 @@
   POST/PUT /brands. Single-org demo for now; login + per-org visibility later (see roadmap).
 - Adding a platform or format: add it to `schemas.py`, add its skill file, and (platforms) its limits in `PLATFORM_RULES`; a test fails if any is missing.
 - Open: research facts can be safe but thin (strategy picks few facts); reviewer sometimes over-flags; Sarvam hangs.
+- Redesign D (branch sg/redesign): frontend follows the user's Canva design ("BuildSocial" + "BuildSocial – App
+  screens"). Tokens #f8fbf8 / #3e4044 / #e3dfd6 / #8e99a2, split-circle logo, collapsible sidebar (New chat,
+  Pipelines, Scheduled, Reviews, Brands, Recents), pill composer with + menu (brand, platform). Fonts in the design
+  are Canva Sans Bold + TT Rounds Neue (not free for web): stand-ins Figtree + Nunito via --font-heading/--font-body.
+  Pipelines page (CI-style step chains, lib/steps.ts) + pipeline detail, built on GET /runs (no backend change).
+  Scheduled page explains the coming feature (no fake data). Review queue -> /reviews. Next: P backend (run trigger,
+  planned steps), then quality Q1-Q2, then schedules S1-S3.
+

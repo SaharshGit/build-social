@@ -71,7 +71,7 @@ export default function BrandForm() {
     setF({ ...f, products: f.products.map((p, j) => (j === i ? { ...p, [key]: value } : p)) })
 
   return (
-    <section>
+    <section className="page">
       <Link to={brandId ? `/brands/${brandId}` : '/brands'} className="back-link">← {brandId ? 'Brand' : 'Brands'}</Link>
       <h1>{brandId ? `Edit ${existing.data?.profile.name ?? 'brand'}` : 'New brand'}</h1>
       <p className="muted small">

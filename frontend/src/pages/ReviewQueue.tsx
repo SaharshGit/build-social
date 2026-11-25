@@ -5,7 +5,7 @@ import { ErrorBox, Loading, StatusBadge } from '../components/common'
 import { PLATFORM_LABELS, timeAgo } from '../lib/format'
 
 const STATUSES = [
-  { value: 'pending', label: 'Pending' },
+  { value: 'pending', label: 'Waiting' },
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
   { value: '', label: 'All' },
@@ -27,26 +27,22 @@ export default function ReviewQueue() {
   }
 
   return (
-    <section>
-      <h1>Review queue</h1>
-      <div className="filters">
-        <label>
-          Status
-          <select value={status} onChange={(e) => setFilter('status', e.target.value)}>
-            {STATUSES.map((s) => (
-              <option key={s.value} value={s.value}>{s.label}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Brand
-          <select value={brandId} onChange={(e) => setFilter('brand', e.target.value)}>
-            <option value="">All brands</option>
-            {(brands.data ?? []).map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-          </select>
-        </label>
+    <section className="page">
+      <h1>Reviews</h1>
+      <p className="subtitle">Posts waiting for a person. Approve, ask for changes, or reject.</p>
+      <div className="chips">
+        {STATUSES.map((s) => (
+          <button key={s.value} className={`chip${status === s.value ? ' active' : ''}`}
+                  onClick={() => setFilter('status', s.value)}>
+            {s.label}
+          </button>
+        ))}
+        <select value={brandId} onChange={(e) => setFilter('brand', e.target.value)} aria-label="Brand">
+          <option value="">All brands</option>
+          {(brands.data ?? []).map((b) => (
+            <option key={b.id} value={b.id}>{b.name}</option>
+          ))}
+        </select>
       </div>
 
       {posts.isLoading && <Loading what="Loading posts" />}
@@ -74,7 +70,7 @@ function PostCard({ post, brand }: { post: PostSummary; brand?: string }) {
         <span className="muted">{timeAgo(post.created_at)}</span>
         <span className="spacer" />
         {post.open_issues > 0 && (
-          <span className="badge badge-warn" title="Reviewer issues still open">
+          <span className="badge badge-bad" title="Reviewer issues still open">
             {post.open_issues} open issue{post.open_issues === 1 ? '' : 's'}
           </span>
         )}

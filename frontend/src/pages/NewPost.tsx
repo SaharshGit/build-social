@@ -25,7 +25,7 @@ export default function NewPost() {
   const canSubmit = brandId && topic.trim().length >= 3 && !start.isPending
 
   return (
-    <section>
+    <section className="page">
       <h1>New post</h1>
       <p className="muted">Research, plan, write and review a post. Takes about 15–60 seconds.</p>
       <form
