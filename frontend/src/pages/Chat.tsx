@@ -1,5 +1,5 @@
-// The home page: a chat with the BuildSocial assistant.
-//   /                    a new, empty chat (the conversation is created on the first message)
+// The home page: a chat with the BuildSocial assistant (layout from the Canva design).
+//   /                     a new, empty chat (the conversation is created on the first message)
 //   /chat/:conversationId an existing chat
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
@@ -9,19 +9,13 @@ import {
 } from '../api/hooks'
 import ChatCard, { type Attachment } from '../components/ChatCards'
 import { ErrorBox, Loading } from '../components/common'
-
-const SUGGESTIONS = [
-  'Create an Instagram post about monsoon evenings',
-  'How many posts are pending review?',
-  'What did we spend this week?',
-  'Show me the latest posts',
-]
+import { PencilIcon, PlusIcon, SendIcon, TrashIcon } from '../components/Icons'
+import { PLATFORM_LABELS } from '../lib/format'
 
 export default function Chat() {
   const { conversationId } = useParams()
   const navigate = useNavigate()
   const conversation = useConversation(conversationId)
-  const brands = useBrands()
   const create = useCreateConversation()
   const send = useSendMessage()
   const update = useUpdateConversation(conversationId ?? '')
@@ -29,13 +23,15 @@ export default function Chat() {
   const [renaming, setRenaming] = useState<string | null>(null) // the title being edited
   const [draft, setDraft] = useState('')
   const [newChatBrand, setNewChatBrand] = useState('') // brand picked before the chat exists
+  const [platform, setPlatform] = useState('') // picked in the + menu; added to the message when it isn't said
   const [pendingText, setPendingText] = useState<string | null>(null) // shown until the reply arrives
   const bottom = useRef<HTMLDivElement>(null)
 
   const messages = conversation.data?.messages ?? []
   const sending = pendingText !== null
+  const isNew = !conversationId
+  const brandId = conversationId ? (conversation.data?.brand_id ?? '') : newChatBrand
 
-  // Keep the newest message in view.
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages.length, sending])
@@ -43,6 +39,7 @@ export default function Chat() {
   async function submit(text: string) {
     text = text.trim()
     if (!text || sending) return
+    if (platform && !/instagram|linkedin/i.test(text)) text += `\n\nPlatform: ${PLATFORM_LABELS[platform]}`
     setPendingText(text)
     setDraft('')
     let id = conversationId
@@ -57,75 +54,55 @@ export default function Chat() {
     if (id && id !== conversationId) navigate(`/chat/${id}`)
   }
 
-  const brandId = conversationId ? (conversation.data?.brand_id ?? '') : newChatBrand
+  function chooseBrand(id: string) {
+    if (conversationId) update.mutate({ brand_id: id || null })
+    else setNewChatBrand(id)
+  }
 
   return (
-    <section className="chat">
-      <header className="chat-header">
-        {renaming !== null ? (
-          <form
-            className="rename"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (renaming.trim()) update.mutate({ title: renaming.trim() })
-              setRenaming(null)
-            }}
-          >
-            <input value={renaming} onChange={(e) => setRenaming(e.target.value)} autoFocus maxLength={200}
-                   onBlur={() => setRenaming(null)} onKeyDown={(e) => e.key === 'Escape' && setRenaming(null)} />
-          </form>
-        ) : (
-          <h1>{conversation.data?.title ?? 'New chat'}</h1>
-        )}
-        {conversation.data && renaming === null && (
-          <>
-            <button className="icon-btn" title="Rename chat" onClick={() => setRenaming(conversation.data!.title)}>✎</button>
-            <button
-              className="icon-btn"
-              title="Delete chat"
-              onClick={() => {
-                if (!confirm('Delete this chat? Posts created from it are kept.')) return
-                remove.mutate(conversation.data!.id, { onSuccess: () => navigate('/') })
+    <section className={`chat${isNew && messages.length === 0 && !sending ? ' chat-new' : ''}`}>
+      {conversation.data && (
+        <header className="chat-header">
+          {renaming !== null ? (
+            <form
+              className="rename"
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (renaming.trim()) update.mutate({ title: renaming.trim() })
+                setRenaming(null)
               }}
             >
-              🗑
-            </button>
-          </>
-        )}
-        <label className="brand-chip">
-          Brand
-          <select
-            value={brandId}
-            disabled={update.isPending}
-            onChange={(e) =>
-              conversationId ? update.mutate({ brand_id: e.target.value || null }) : setNewChatBrand(e.target.value)
-            }
-          >
-            <option value="">(none yet)</option>
-            {(brands.data ?? []).map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-          </select>
-        </label>
-      </header>
+              <input value={renaming} onChange={(e) => setRenaming(e.target.value)} autoFocus maxLength={200}
+                     onBlur={() => setRenaming(null)} onKeyDown={(e) => e.key === 'Escape' && setRenaming(null)} />
+            </form>
+          ) : (
+            <h1>{conversation.data.title}</h1>
+          )}
+          {renaming === null && (
+            <>
+              <button className="icon-btn" title="Rename chat" onClick={() => setRenaming(conversation.data!.title)}>
+                <PencilIcon />
+              </button>
+              <button
+                className="icon-btn"
+                title="Delete chat"
+                onClick={() => {
+                  if (!confirm('Delete this chat? Posts created from it are kept.')) return
+                  remove.mutate(conversation.data!.id, { onSuccess: () => navigate('/') })
+                }}
+              >
+                <TrashIcon />
+              </button>
+            </>
+          )}
+        </header>
+      )}
 
       <div className="thread">
         {conversationId && conversation.isLoading && <Loading what="Loading chat" />}
         {conversation.error && <ErrorBox error={conversation.error} />}
 
-        {!conversationId && messages.length === 0 && !sending && (
-          <div className="chat-empty">
-            <h2>What should we work on?</h2>
-            <p className="muted">
-              Ask me to create or change a post, approve or reject one, or ask about your posts and spending.
-            </p>
-            <div className="suggestions">
-              {SUGGESTIONS.map((s) => (
-                <button key={s} className="btn" onClick={() => setDraft(s)}>{s}</button>
-              ))}
-            </div>
-          </div>
-        )}
+        {isNew && messages.length === 0 && !sending && <EmptyState onPick={setDraft} />}
 
         {messages.map((m) => <ChatMessage key={m.id} message={m} onSend={sending ? undefined : submit} />)}
 
@@ -139,29 +116,139 @@ export default function Chat() {
         <div ref={bottom} />
       </div>
 
+      <Composer
+        draft={draft}
+        setDraft={setDraft}
+        onSubmit={() => submit(draft)}
+        sending={sending}
+        brandId={brandId}
+        onBrand={chooseBrand}
+        platform={platform}
+        onPlatform={setPlatform}
+        placeholder={isNew ? 'Ask BuildSocial to create, review or schedule a post…' : 'Reply to BuildSocial…'}
+      />
+    </section>
+  )
+}
+
+type ComposerProps = {
+  draft: string
+  setDraft: (s: string) => void
+  onSubmit: () => void
+  sending: boolean
+  brandId: string
+  onBrand: (id: string) => void
+  platform: string
+  onPlatform: (p: string) => void
+  placeholder: string
+}
+
+/** The pill message box from the design. "+" opens brand / platform choices. */
+function Composer(p: ComposerProps) {
+  const brands = useBrands()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const brandName = (brands.data ?? []).find((b) => b.id === p.brandId)?.name
+
+  return (
+    <div className="composer-wrap">
+      {menuOpen && (
+        <div className="plus-menu" onMouseLeave={() => setMenuOpen(false)}>
+          <div className="plus-menu-label">Brand for this chat</div>
+          {(brands.data ?? []).map((b) => (
+            <button key={b.id} className={b.id === p.brandId ? 'selected' : ''}
+                    onClick={() => { p.onBrand(b.id === p.brandId ? '' : b.id); setMenuOpen(false) }}>
+              {b.name}{b.id === p.brandId && <span>✓</span>}
+            </button>
+          ))}
+          <div className="plus-menu-label">Platform</div>
+          {Object.entries(PLATFORM_LABELS).map(([key, label]) => (
+            <button key={key} className={key === p.platform ? 'selected' : ''}
+                    onClick={() => { p.onPlatform(key === p.platform ? '' : key); setMenuOpen(false) }}>
+              {label}{key === p.platform && <span>✓</span>}
+            </button>
+          ))}
+          <button disabled>Attach a file (soon)</button>
+        </div>
+      )}
+      {(brandName || p.platform) && (
+        <div className="composer-context">
+          {brandName && <span className="badge">{brandName}</span>}
+          {p.platform && <span className="badge">{PLATFORM_LABELS[p.platform]}</span>}
+        </div>
+      )}
       <form
         className="composer"
         onSubmit={(e) => {
           e.preventDefault()
-          submit(draft)
+          p.onSubmit()
         }}
       >
+        <button type="button" className={`composer-plus${menuOpen ? ' open' : ''}`} title="Brand and platform"
+                onClick={() => setMenuOpen((o) => !o)}>
+          <PlusIcon size={26} />
+        </button>
         <textarea
-          rows={2}
-          value={draft}
-          placeholder="Message BuildSocial…  (Enter to send, Shift+Enter for a new line)"
-          onChange={(e) => setDraft(e.target.value)}
+          rows={1}
+          value={p.draft}
+          placeholder={p.placeholder}
+          onChange={(e) => {
+            p.setDraft(e.target.value)
+            e.target.style.height = 'auto'
+            e.target.style.height = `${e.target.scrollHeight}px` // grow with the text
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault()
-              submit(draft)
+              p.onSubmit()
             }
           }}
           autoFocus
         />
-        <button className="btn btn-primary" disabled={sending || !draft.trim()}>Send</button>
+        <button className="send-btn" disabled={p.sending || !p.draft.trim()} title="Send (Enter)">
+          <SendIcon />
+        </button>
       </form>
-    </section>
+    </div>
+  )
+}
+
+/** The new-chat screen: what BuildSocial can do, as questions you can click (they fill the box, you send). */
+function EmptyState({ onPick }: { onPick: (text: string) => void }) {
+  const brands = useBrands()
+  const names = (brands.data ?? []).map((b) => b.name)
+  const [a, b, c] = [names[0] ?? 'my brand', names[1] ?? names[0] ?? 'my brand', names[2] ?? names[0] ?? 'my brand']
+  const groups = [
+    {
+      title: 'Create',
+      items: [
+        `Create an Instagram post for ${a} about this week's special`,
+        `Write a LinkedIn post for ${b} about what makes us different`,
+      ],
+    },
+    {
+      title: 'Review',
+      items: ['Show me the posts waiting for review', `Show me the latest posts for ${c}`],
+    },
+    {
+      title: 'Ask',
+      items: ['How many posts are pending?', 'What did we spend this week?', 'Did any builds fail recently?'],
+    },
+  ]
+  return (
+    <div className="chat-empty">
+      <h2>What should we create today?</h2>
+      <p>Ask for a post, review what's waiting, or ask about your posts and spending.</p>
+      <div className="suggestion-groups">
+        {groups.map((g) => (
+          <div key={g.title} className="suggestion-group">
+            <div className="suggestion-title">{g.title}</div>
+            {g.items.map((q) => (
+              <button key={q} className="suggestion" onClick={() => onPick(q)}>{q}</button>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 

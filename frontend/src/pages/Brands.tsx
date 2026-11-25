@@ -6,31 +6,36 @@ import { timeAgo } from '../lib/format'
 export default function Brands() {
   const brands = useBrands()
   return (
-    <section>
+    <section className="page">
       <div className="detail-header">
         <h1>Brands</h1>
         <span className="spacer" />
         <Link className="btn btn-primary" to="/brands/new">+ New brand</Link>
       </div>
+      <p className="subtitle">What the agents know about each brand: voice, rules and approved product claims.</p>
+
       {brands.isLoading && <Loading what="Loading brands" />}
       {brands.error && <ErrorBox error={brands.error} />}
-      {brands.data?.length === 0 && (
-        <p className="muted">
-          No brands yet. Add one with <strong>+ New brand</strong>, or import the examples with{' '}
-          <code>uv run buildsocial import-brands examples/*.yaml</code>.
-        </p>
-      )}
-      <div className="card-list">
+      <div className="brand-grid">
         {brands.data?.map((b) => (
-          <Link key={b.id} to={`/brands/${b.id}`} className="card post-card">
-            <div className="card-meta">
-              <strong>{b.name}</strong>
-              <span className="spacer" />
-              <span className="badge badge-muted">{b.products} product{b.products === 1 ? '' : 's'}</span>
+          <div key={b.id} className="card brand-card">
+            <Link to={`/brands/${b.id}`} style={{ textDecoration: 'none' }}><h3>{b.name}</h3></Link>
+            <div className="muted small">{b.industry} · {b.market}</div>
+            <div className="small" style={{ margin: '0.4rem 0 0.9rem' }}>
+              {b.products} product{b.products === 1 ? '' : 's'} · updated {timeAgo(b.updated_at)}
             </div>
-            <div className="muted small">{b.industry} · {b.market} · updated {timeAgo(b.updated_at)}</div>
-          </Link>
+            <div className="action-buttons">
+              <Link className="btn btn-primary" to={`/new?brand=${b.id}`}>New post</Link>
+              <Link className="btn" to={`/brands/${b.id}/edit`}>Edit</Link>
+            </div>
+          </div>
         ))}
+        <Link to="/brands/new" className="card add-card">
+          <h3 style={{ margin: '0 0 0.3rem' }}>+ Add a brand</h3>
+          <div className="muted small">
+            Fill in the form. Later you'll be able to paste the brand's website and let BuildSocial draft it for you to check.
+          </div>
+        </Link>
       </div>
     </section>
   )

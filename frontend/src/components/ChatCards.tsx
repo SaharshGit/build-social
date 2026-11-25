@@ -3,15 +3,15 @@
 //   {type: "post", id}   the post the reply is about     -> the post with its buttons
 //   {type: "data", ...}  a data question's query+result  -> the numbers / list it was answered from
 //   {type: "error", ...} the assistant failed            -> a short technical note
-import { useCallback } from 'react'
+import { useEffect, useRef } from 'react'
 import { Link } from 'react-router'
-import type { Run } from '../api/client'
-import { useBrandNames, usePost, useRefreshAfterRun, useRun } from '../api/hooks'
+import { isActive, useBrandNames, usePost, useRefreshAfterRun, useRun } from '../api/hooks'
 import { PLATFORM_LABELS } from '../lib/format'
 import { ErrorBox, Loading, StatusBadge } from './common'
 import Highlighted from './Highlighted'
 import PostActions from './PostActions'
-import RunProgress, { formatCost } from './RunProgress'
+import StepChain from './StepChain'
+import { formatCost } from './RunProgress'
 
 export type Attachment = { type: string; id?: string; [key: string]: unknown }
 
@@ -31,23 +31,43 @@ export default function ChatCard({ attachment, onSend }: { attachment: Attachmen
   }
 }
 
-/** Live progress while the worker runs; once done, the post it produced (or revised). */
+/** A build card with the CI-style step chain; once done, the post it produced (or revised). */
 function RunCard({ runId }: { runId: string }) {
   const run = useRun(runId)
   const refresh = useRefreshAfterRun()
-  const onFinished = useCallback((r: Run) => refresh(r.post_id), [refresh])
+  const brandNames = useBrandNames()
+  const refreshed = useRef(false)
 
-  if (run.data?.status === 'done' && run.data.post_id) {
-    return (
-      <div className="chat-card-stack">
-        <div className="muted small">
-          ✓ {run.data.kind === 'revision' ? 'Revised' : 'Created'} for {formatCost(run.data.cost)}
+  useEffect(() => {
+    const r = run.data
+    if (r && !isActive(r.status) && !refreshed.current) {
+      refreshed.current = true
+      refresh(r.post_id)
+    }
+  }, [run.data, refresh])
+
+  if (run.error) return <ErrorBox error={run.error} />
+  if (!run.data) return <p className="muted">Starting…</p>
+  const r = run.data
+  const what = r.kind === 'revision' ? 'Revision' : 'Post'
+  const title = r.status === 'done' ? `${what} built` : r.status === 'failed' ? `${what} failed` : `Building ${what.toLowerCase()}`
+  const platform = PLATFORM_LABELS[String(r.brief.platform)] ?? String(r.brief.platform ?? '')
+
+  return (
+    <div className="chat-card-stack">
+      <Link to={`/pipelines/${r.id}`} className="card" style={{ textDecoration: 'none' }}>
+        <div className="card-meta" style={{ marginBottom: '0.7rem' }}>
+          <strong>{title} · {brandNames[r.brand_id] ?? 'Brand'} · {platform}</strong>
+          <span className="spacer" />
+          <span>{formatCost(r.cost)}{isActive(r.status) ? ' so far' : ''}</span>
         </div>
-        <PostCard postId={run.data.post_id} />
-      </div>
-    )
-  }
-  return <RunProgress runId={runId} onFinished={onFinished} />
+        <StepChain run={r} />
+        {r.status === 'queued' && <div className="muted small" style={{ marginTop: '0.5rem' }}>Waiting for the worker… (is <code>buildsocial worker</code> running?)</div>}
+        {r.error && <div className="bad-text small" style={{ marginTop: '0.5rem' }}>{r.error.slice(0, 200)}</div>}
+      </Link>
+      {r.status === 'done' && r.post_id && <PostCard postId={r.post_id} />}
+    </div>
+  )
 }
 
 /** The post, with the same Approve / Revise / Reject buttons as the post page. */

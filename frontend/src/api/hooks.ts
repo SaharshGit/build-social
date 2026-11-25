@@ -74,6 +74,15 @@ export function useRun(runId: string | null | undefined) {
   })
 }
 
+/** Recent runs for the Pipelines page. Refreshes every 2 s while any run is still going. */
+export function useRuns(status?: string) {
+  return useQuery({
+    queryKey: ['runs', status ?? 'all'],
+    queryFn: () => api<Run[]>(`/runs?limit=100${status ? `&status=${status}` : ''}`),
+    refetchInterval: (query) => ((query.state.data ?? []).some((r) => isActive(r.status)) ? 2000 : 15_000),
+  })
+}
+
 // ----------------------------------------------------------------------
 // Mutations: things that change data. Afterwards, related cached data is marked
 // stale ("invalidated") so lists and pages refresh by themselves.
