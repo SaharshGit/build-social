@@ -299,3 +299,19 @@ blockquote.example { margin: 0 0 0.5rem; font-style: italic; }
 .example-field textarea { flex: 1; }
 /* new, empty chat: the pill sits in the lower part of an empty page, like the design */
 .chat-new .composer-wrap { padding-bottom: 16vh; }
+
+/* new-chat suggestions */
+.chat-new .thread { justify-content: flex-end; }
+.chat-empty { margin: auto 0 0; text-align: center; color: var(--muted); padding-bottom: 1.2rem; }
+.chat-empty h2 { font-size: 1.8rem; color: var(--ink); margin: 0 0 0.3rem; }
+.chat-empty p { margin: 0 0 1.6rem; }
+.suggestion-groups { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; text-align: left; }
+@media (max-width: 900px) { .suggestion-groups { grid-template-columns: 1fr; } }
+.suggestion-group { display: flex; flex-direction: column; gap: 0.5rem; }
+.suggestion-title { font-family: var(--font-heading); font-weight: 700; color: var(--text); font-size: 0.95rem; padding-left: 0.2rem; }
+.suggestion {
+  text-align: left; background: var(--panel); border: 2px solid var(--line); border-radius: 14px;
+  padding: 0.65rem 0.85rem; cursor: pointer; color: var(--text); line-height: 1.35; font-size: 0.93rem;
+}
+.suggestion:hover { border-color: var(--muted); background: color-mix(in srgb, var(--select) 30%, var(--panel)); }
+.chat-new .composer-wrap { padding-bottom: 8vh; }

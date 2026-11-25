@@ -102,6 +102,8 @@ export default function Chat() {
         {conversationId && conversation.isLoading && <Loading what="Loading chat" />}
         {conversation.error && <ErrorBox error={conversation.error} />}
 
+        {isNew && messages.length === 0 && !sending && <EmptyState onPick={setDraft} />}
+
         {messages.map((m) => <ChatMessage key={m.id} message={m} onSend={sending ? undefined : submit} />)}
 
         {pendingText && (
@@ -206,6 +208,46 @@ function Composer(p: ComposerProps) {
           <SendIcon />
         </button>
       </form>
+    </div>
+  )
+}
+
+/** The new-chat screen: what BuildSocial can do, as questions you can click (they fill the box, you send). */
+function EmptyState({ onPick }: { onPick: (text: string) => void }) {
+  const brands = useBrands()
+  const names = (brands.data ?? []).map((b) => b.name)
+  const [a, b, c] = [names[0] ?? 'my brand', names[1] ?? names[0] ?? 'my brand', names[2] ?? names[0] ?? 'my brand']
+  const groups = [
+    {
+      title: 'Create',
+      items: [
+        `Create an Instagram post for ${a} about this week's special`,
+        `Write a LinkedIn post for ${b} about what makes us different`,
+      ],
+    },
+    {
+      title: 'Review',
+      items: ['Show me the posts waiting for review', `Show me the latest posts for ${c}`],
+    },
+    {
+      title: 'Ask',
+      items: ['How many posts are pending?', 'What did we spend this week?', 'Did any builds fail recently?'],
+    },
+  ]
+  return (
+    <div className="chat-empty">
+      <h2>What should we create today?</h2>
+      <p>Ask for a post, review what's waiting, or ask about your posts and spending.</p>
+      <div className="suggestion-groups">
+        {groups.map((g) => (
+          <div key={g.title} className="suggestion-group">
+            <div className="suggestion-title">{g.title}</div>
+            {g.items.map((q) => (
+              <button key={q} className="suggestion" onClick={() => onPick(q)}>{q}</button>
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
