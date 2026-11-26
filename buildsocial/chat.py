@@ -19,6 +19,7 @@ from buildsocial.agents.chat import (
     resolve_brand,
 )
 from buildsocial.chat_data import run_query
+from buildsocial.db import assets as asset_ops
 from buildsocial.db import brands as brand_ops
 from buildsocial.db import conversations as conv_ops
 from buildsocial.db import posts as post_ops
@@ -55,8 +56,9 @@ async def handle_message(
     photos: images attached to this message (already checked to belong to the organization). A post
     created from this message is built around them.
     """
-    photos = photos or []
     history = await conv_ops.recent_messages(db, conv, HISTORY_MESSAGES)
+    # Photos attached before a clarifying question still count ("which platform?" -> "Instagram").
+    photos = photos or await _pending_photos(db, org, history)
     user_msg = await conv_ops.add_message(db, conv, MessageRole.USER, text,
                                           [{"type": "photo", "id": str(a.id)} for a in photos])
     if conv.brand_id is None and photos:  # a photo says which brand the chat is about
@@ -235,6 +237,23 @@ def short_title(text: str, limit: int = 50) -> str:
     if len(text) <= limit:
         return text or "New chat"
     return text[:limit].rsplit(" ", 1)[0].rstrip(",.;:") + "…"
+
+
+async def _pending_photos(db: AsyncSession, org: Organization, history: list[Message]) -> list[Asset]:
+    """Photos the user attached since the chat last started a post (none of them used yet)."""
+    ids: list[str] = []
+    for m in history:  # oldest first
+        kinds = {a.get("type") for a in m.attachments or []}
+        if m.role == MessageRole.ASSISTANT and "run" in kinds:
+            ids = []  # a post was started: earlier photos were used (or not wanted)
+        elif m.role == MessageRole.USER:
+            ids += [a["id"] for a in m.attachments or [] if a.get("type") == "photo"]
+    photos = []
+    for photo_id in dict.fromkeys(ids):
+        asset = await asset_ops.get_asset(db, org, uuid.UUID(photo_id))
+        if asset is not None:  # deleted since: drop it
+            photos.append(asset)
+    return photos
 
 
 def _history_line(m: Message) -> str:

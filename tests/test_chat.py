@@ -280,3 +280,25 @@ async def test_unknown_photos_and_too_many_are_rejected(client, chat, store):  #
     r = await client.post(f"/conversations/{conv}/messages",
                           json={"text": "hi", "photo_ids": [str(uuid.uuid4()) for _ in range(5)]})
     assert r.status_code == 422
+
+
+async def test_a_photo_survives_a_clarifying_question(client, chat, store, db_maker):  # noqa: F811
+    brand_id = await create_brand(client)
+    photo = (await upload(client, brand_id, image_bytes(), in_library=False)).json()
+    conv = await new_chat(client, brand_id)
+    chat(decision("clarify", "Which platform: Instagram or LinkedIn?"),
+         decision("create_post", "On it", topic="cold brew", platform="instagram"),
+         decision("create_post", "On it", topic="another one", platform="instagram"))
+
+    await say_with_photos(client, conv, "Make a post around this photo", [photo["id"]])
+    turn = await say(client, conv, "Instagram")  # no photo on this message
+    run = (await client.get(f"/runs/{turn['assistant']['attachments'][0]['id']}")).json()
+    assert run["brief"]["photo_ids"] == [photo["id"]] and run["brief"]["format"] == "single_image"
+
+    # Once a post was started, the photo isn't reused for the next one.
+    async with db_maker() as db:  # let the first post finish, so a new one may start
+        (await db.get(Run, uuid.UUID(run["id"]))).status = RunStatus.DONE
+        await db.commit()
+    turn = await say(client, conv, "Now another post")
+    run = (await client.get(f"/runs/{turn['assistant']['attachments'][0]['id']}")).json()
+    assert run["brief"]["photo_ids"] == [] and run["brief"]["format"] == "text"

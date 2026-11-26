@@ -860,6 +860,8 @@ export interface components {
         MessageIn: {
             /** Text */
             text: string;
+            /** Photo Ids */
+            photo_ids?: string[];
         };
         /** MessageOut */
         MessageOut: {
