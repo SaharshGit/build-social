@@ -2,7 +2,7 @@
 // results, tracks loading/error states, and re-fetches when told something changed.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  api, type Brand, type BrandProfile, type BrandSummary, type Brief, type ChatTurn, type Conversation, type ConversationSummary,
+  api, upload, type Asset, type AssetKind, type Style, type Brand, type BrandProfile, type BrandSummary, type Brief, type ChatTurn, type Conversation, type ConversationSummary,
   type Health, type Post, type PostSummary, type Run,
 } from './client'
 
@@ -210,5 +210,67 @@ export function useSaveBrand() {
       queryClient.setQueryData(['brand', brand.id], brand)
       queryClient.invalidateQueries({ queryKey: ['brands'] })
     },
+  })
+}
+
+// --- Brand images and style ---------------------------------------------------------------
+
+export function useAssets(brandId: string) {
+  return useQuery({
+    queryKey: ['assets', brandId],
+    queryFn: () => api<Asset[]>(`/brands/${brandId}/assets`),
+    enabled: !!brandId,
+  })
+}
+
+/** Upload an image. The server reads it with a model (a few seconds) before answering. */
+export function useUploadAsset(brandId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ file, kind, product, inLibrary = true }: { file: File; kind: AssetKind; product?: string; inLibrary?: boolean }) =>
+      upload<Asset>(`/brands/${brandId}/assets`, file, {
+        kind, in_library: String(inLibrary), ...(product ? { product } : {}),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assets', brandId] })
+      queryClient.invalidateQueries({ queryKey: ['style', brandId] })
+    },
+  })
+}
+
+export function useUpdateAsset(brandId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ assetId, change }: { assetId: string; change: Partial<Pick<Asset, 'kind' | 'product' | 'description' | 'in_library'>> }) =>
+      api<Asset>(`/assets/${assetId}`, { method: 'PATCH', body: change }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assets', brandId] })
+      queryClient.invalidateQueries({ queryKey: ['style', brandId] })
+    },
+  })
+}
+
+export function useDeleteAsset(brandId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (assetId: string) => api<null>(`/assets/${assetId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assets', brandId] })
+      queryClient.invalidateQueries({ queryKey: ['style', brandId] })
+    },
+  })
+}
+
+export function useStyle(brandId: string) {
+  return useQuery({ queryKey: ['style', brandId], queryFn: () => api<Style>(`/brands/${brandId}/style`), enabled: !!brandId })
+}
+
+/** Read the style from the reference images (about INR 0.2-0.35). replace: overwrite a person's edit. */
+export function useReadStyle(brandId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (replace: boolean = false) =>
+      api<Style>(`/brands/${brandId}/style/read${replace ? '?replace=true' : ''}`, { method: 'POST' }),
+    onSuccess: (style) => queryClient.setQueryData(['style', brandId], style),
   })
 }

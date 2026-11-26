@@ -335,3 +335,36 @@ blockquote.example { margin: 0 0 0.5rem; font-style: italic; }
 .image-text-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .image-text-headline { font-family: var(--font-heading); font-weight: 700; font-size: 1.4rem; color: var(--ink); margin-top: 0.3rem; }
 .image-text-subline { margin-top: 0.2rem; }
+
+/* Brand → Look & feel */
+.tabs { margin: 0.5rem 0 1.25rem; }
+.tabs .chip { cursor: pointer; font: inherit; }
+.look-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+@media (max-width: 900px) { .look-grid { grid-template-columns: 1fr; } }
+.look-card h2 { margin-top: 1rem; }
+.look-card h2:first-child, .look-head h2 { margin-top: 0; }
+.look-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem; }
+.swatch-row { display: flex; gap: 0.75rem; align-items: flex-start; padding: 0.4rem 0; }
+.swatch { width: 40px; height: 40px; border: 1.5px solid var(--line); border-radius: 10px; padding: 0; background: none; cursor: pointer; }
+.swatch::-webkit-color-swatch-wrapper { padding: 0; }
+.swatch::-webkit-color-swatch { border: none; border-radius: 8px; }
+.swatch-fields { flex: 1; display: flex; flex-direction: column; gap: 0.25rem; }
+.swatch-fields input { border: none; border-bottom: 1px solid transparent; background: none; font: inherit; font-weight: 700; color: var(--text); padding: 0; }
+.swatch-fields input:focus { border-bottom-color: var(--soft-line); outline: none; }
+.swatch-sub { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; font-size: 0.85rem; }
+.swatch-sub .hex { width: 6.5em; font-weight: 400; color: var(--muted); font-family: ui-monospace, monospace; }
+.swatch-sub .hex.invalid { color: var(--bad); }
+.swatch-sub select { font-size: 0.85rem; border: 1px solid var(--soft-line); border-radius: 8px; padding: 0.1rem 0.3rem; background: var(--panel); color: var(--text); }
+.warn { color: var(--bad); }
+.readable { background: var(--bg); border-radius: 12px; padding: 0.7rem 0.9rem; margin: 0.6rem 0; font-size: 0.9rem; }
+.readable.bad { color: var(--bad); }
+.font-row { display: grid; grid-template-columns: 9rem 1fr; gap: 0.75rem; align-items: center; font-size: 0.9rem; margin: 0.4rem 0; }
+.font-row input { padding: 0.4rem 0.6rem; border: 1.5px solid var(--soft-line); border-radius: 10px; font: inherit; }
+.font-sample { margin: 0.2rem 0 0.6rem 9.75rem; font-size: 1.3rem; color: var(--ink); }
+.font-sample.small { font-size: 1rem; }
+.logo-row { display: flex; gap: 1rem; align-items: center; }
+.logo-box { width: 120px; height: 120px; border-radius: 12px; border: 1.5px solid var(--line); display: grid; place-items: center; overflow: hidden; flex-shrink: 0; }
+.logo-box img { max-width: 85%; max-height: 85%; object-fit: contain; }
+.file-btn { cursor: pointer; display: inline-block; }
+.look-card textarea { width: 100%; box-sizing: border-box; border: 1.5px solid var(--soft-line); border-radius: 12px; padding: 0.6rem; font: inherit; background: var(--bg); }
+.look-actions { display: flex; gap: 1rem; align-items: center; margin-top: 1.25rem; }

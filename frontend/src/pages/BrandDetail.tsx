@@ -1,11 +1,18 @@
-import { Link, useParams } from 'react-router'
-import { useBrand } from '../api/hooks'
+import { Link, useParams, useSearchParams } from 'react-router'
+import type { Brand } from '../api/client'
+import { useAssets, useBrand } from '../api/hooks'
+import LookAndFeel from '../components/brand/LookAndFeel'
 import { ErrorBox, Loading } from '../components/common'
 
-/** A brand's profile: everything the agents read before writing for it. */
+const TABS = [['overview', 'Overview'], ['look', 'Look & feel'], ['photos', 'Photos']] as const
+
+/** A brand: what the agents read (Overview), how its images look (Look & feel) and its photos. */
 export default function BrandDetail() {
   const { brandId = '' } = useParams()
   const brand = useBrand(brandId)
+  const assets = useAssets(brandId)
+  const [params, setParams] = useSearchParams()
+  const tab = params.get('tab') ?? 'overview'
 
   if (brand.isLoading) return <Loading what="Loading brand" />
   if (brand.error) return <ErrorBox error={brand.error} />
@@ -24,6 +31,27 @@ export default function BrandDetail() {
         <Link className="btn" to={`/reviews?status=&brand=${brand.data.id}`}>All {p.name} posts</Link>
         <Link className="btn" to={`/brands/${brand.data.id}/edit`}>Edit brand</Link>
       </div>
+
+      <div className="chips tabs" role="tablist">
+        {TABS.map(([key, label]) => (
+          <button key={key} role="tab" aria-selected={tab === key} className={`chip ${tab === key ? 'active' : ''}`}
+            onClick={() => setParams(key === 'overview' ? {} : { tab: key }, { replace: true })}>
+            {label}{key === 'photos' && assets.data ? ` · ${assets.data.length}` : ''}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'look' && <LookAndFeel key={brand.data.updated_at} brand={brand.data} />}
+      {tab === 'photos' && <p className="muted">The photo library and style board come in the next step.</p>}
+      {tab === 'overview' && <Overview brand={brand.data} />}
+    </section>
+  )
+}
+
+function Overview({ brand }: { brand: Brand }) {
+  const p = brand.profile
+  return (
+    <>
 
       <div className="card small">
         <p><strong>What they do:</strong> {p.description}</p>
@@ -70,7 +98,7 @@ export default function BrandDetail() {
           ))}
         </>
       )}
-    </section>
+    </>
   )
 }
 

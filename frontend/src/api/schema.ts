@@ -60,6 +60,112 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/brands/{brand_id}/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Assets */
+        get: operations["list_assets_brands__brand_id__assets_get"];
+        put?: never;
+        /** Upload Asset */
+        post: operations["upload_asset_brands__brand_id__assets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assets/{asset_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Asset */
+        get: operations["get_asset_assets__asset_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Asset */
+        delete: operations["delete_asset_assets__asset_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Asset */
+        patch: operations["update_asset_assets__asset_id__patch"];
+        trace?: never;
+    };
+    "/assets/{asset_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Asset File */
+        get: operations["get_asset_file_assets__asset_id__file_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assets/{asset_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reread Asset */
+        post: operations["reread_asset_assets__asset_id__read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}/style": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Style */
+        get: operations["get_style_brands__brand_id__style_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit Style */
+        patch: operations["edit_style_brands__brand_id__style_patch"];
+        trace?: never;
+    };
+    "/brands/{brand_id}/style/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read Style */
+        post: operations["read_style_brands__brand_id__style_read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/brands/{brand_id}/runs": {
         parameters: {
             query?: never;
@@ -284,6 +390,146 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AssetKind
+         * @enum {string}
+         */
+        AssetKind: "logo" | "product" | "lifestyle" | "place" | "reference" | "other";
+        /**
+         * AssetOut
+         * @description An uploaded image. `url` serves the file through the API (the bucket itself stays private).
+         */
+        AssetOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Brand Id
+             * Format: uuid
+             */
+            brand_id: string;
+            kind: components["schemas"]["AssetKind"];
+            /** Url */
+            url: string;
+            /** Content Type */
+            content_type: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Width */
+            width: number | null;
+            /** Height */
+            height: number | null;
+            /** Original Name */
+            original_name: string | null;
+            /** Product */
+            product: string | null;
+            /** Description */
+            description: string | null;
+            /** Analysis */
+            analysis: {
+                [key: string]: unknown;
+            } | null;
+            /** In Library */
+            in_library: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * AssetUpdate
+         * @description Change what an image is. Only the fields sent are changed; send product: null to unlink it.
+         */
+        AssetUpdate: {
+            kind?: components["schemas"]["AssetKind"] | null;
+            /** Product */
+            product?: string | null;
+            /** Description */
+            description?: string | null;
+            /** In Library */
+            in_library?: boolean | null;
+        };
+        /** Body_upload_asset_brands__brand_id__assets_post */
+        Body_upload_asset_brands__brand_id__assets_post: {
+            /**
+             * File
+             * @description PNG, JPEG or WebP, up to 10 MB
+             */
+            file: string;
+            /** @default other */
+            kind: components["schemas"]["AssetKind"];
+            /**
+             * Product
+             * @description The brand product it shows, by name
+             */
+            product?: string | null;
+            /**
+             * In Library
+             * @description false: a photo for one post only
+             * @default true
+             */
+            in_library: boolean;
+        };
+        /** BrandColor */
+        BrandColor: {
+            /**
+             * Name
+             * @description e.g. 'Espresso'
+             */
+            name: string;
+            /**
+             * Hex
+             * @description e.g. '#2E1D14'
+             */
+            hex: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "background" | "text" | "accent" | "secondary" | "highlight";
+        };
+        /**
+         * BrandDesign
+         * @description The brand's visual identity. Used by the design step; agents that write words never need it.
+         */
+        BrandDesign: {
+            /** Colors */
+            colors: components["schemas"]["BrandColor"][];
+            fonts: components["schemas"]["BrandFonts"];
+            /**
+             * Logo Asset Id
+             * @description The uploaded logo (an asset of this brand)
+             */
+            logo_asset_id?: string | null;
+            /**
+             * Art Direction
+             * @description How photos and images should look: light, textures, mood
+             * @default
+             */
+            art_direction: string;
+            /** Visual Dos */
+            visual_dos?: string[];
+            /** Visual Donts */
+            visual_donts?: string[];
+        };
+        /** BrandFont */
+        BrandFont: {
+            /**
+             * Family
+             * @description A Google Fonts family name, e.g. 'Fraunces'
+             */
+            family: string;
+            /** Weights */
+            weights?: number[];
+        };
+        /** BrandFonts */
+        BrandFonts: {
+            heading: components["schemas"]["BrandFont"];
+            body: components["schemas"]["BrandFont"];
+        };
+        /**
          * BrandOut
          * @description One brand in full.
          */
@@ -359,6 +605,93 @@ export interface components {
             example_posts?: string[];
             /** Products */
             products?: components["schemas"]["Product"][];
+            design?: components["schemas"]["BrandDesign"] | null;
+        };
+        /**
+         * BrandStyle
+         * @description What the reference images share. Field order: look at each image first, then summarise.
+         */
+        BrandStyle: {
+            /**
+             * Per Image
+             * @description One short line per image, in the order given: what it shows and how it looks (light, colours, composition)
+             */
+            per_image: string[];
+            /**
+             * Palette
+             * @description 3 to 6 colours that recur across the images, '#rrggbb', most used first
+             */
+            palette: string[];
+            /**
+             * Color Use
+             * @description How colour is used, e.g. 'warm earthy tones, one orange accent, lots of cream'
+             */
+            color_use: string;
+            /**
+             * Lighting
+             * @description The usual light, e.g. 'soft natural daylight from a window, gentle shadows'
+             */
+            lighting: string;
+            /**
+             * Composition
+             * @description Framing and crops, e.g. 'close-up, product off-centre, lots of empty space'
+             */
+            composition: string;
+            /**
+             * Textures Props
+             * @description Surfaces and props that recur, e.g. 'wooden table', 'steel tumbler'
+             */
+            textures_props: string[];
+            /**
+             * Text On Image
+             * @description How words appear on the images (size, weight, case, placement); 'no text on the images' if none
+             */
+            text_on_image: string;
+            /**
+             * Motifs
+             * @description Other recurring visual elements, e.g. 'hand holding the cup'; may be empty
+             */
+            motifs: string[];
+            /**
+             * Mood
+             * @description 3 to 6 words for the overall feel, e.g. 'cosy', 'playful'
+             */
+            mood: string[];
+            /**
+             * Avoid
+             * @description Looks that would clash with this style, based on what the images show (e.g. 'neon colours', 'busy collage layouts')
+             */
+            avoid: string[];
+            /**
+             * Summary
+             * @description 2-3 sentences a designer can follow to make a new image in this style
+             */
+            summary: string;
+        };
+        /** BrandStyleUpdate */
+        BrandStyleUpdate: {
+            /** Per Image */
+            per_image?: string[] | null;
+            /** Palette */
+            palette?: string[] | null;
+            /** Color Use */
+            color_use?: string | null;
+            /** Lighting */
+            lighting?: string | null;
+            /** Composition */
+            composition?: string | null;
+            /** Textures Props */
+            textures_props?: string[] | null;
+            /** Text On Image */
+            text_on_image?: string | null;
+            /** Motifs */
+            motifs?: string[] | null;
+            /** Mood */
+            mood?: string[] | null;
+            /** Avoid */
+            avoid?: string[] | null;
+            /** Summary */
+            summary?: string | null;
         };
         /**
          * BrandSummary
@@ -575,6 +908,8 @@ export interface components {
             goal: "engagement" | "awareness" | "sales" | "community";
             /** Notes */
             notes?: string | null;
+            /** Photo Ids */
+            photo_ids?: string[];
         };
         /**
          * PostDraft
@@ -844,6 +1179,55 @@ export interface components {
          * @enum {string}
          */
         RunStatus: "queued" | "running" | "done" | "failed";
+        /** StyleOut */
+        StyleOut: {
+            reading?: components["schemas"]["BrandStyle"] | null;
+            /**
+             * Asset Ids
+             * @default []
+             */
+            asset_ids: string[];
+            /**
+             * Excluded
+             * @default []
+             */
+            excluded: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Kit Mismatch
+             * @default []
+             */
+            kit_mismatch: string[];
+            /**
+             * Edited
+             * @default false
+             */
+            edited: boolean;
+            /** At */
+            at?: string | null;
+            /** Model Cost */
+            model_cost?: number | null;
+            /** Currency */
+            currency?: string | null;
+            /**
+             * References Usable
+             * @default 0
+             */
+            references_usable: number;
+            /**
+             * References Excluded
+             * @default []
+             */
+            references_excluded: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Stale
+             * @default false
+             */
+            stale: boolean;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -992,6 +1376,332 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BrandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_assets_brands__brand_id__assets_get: {
+        parameters: {
+            query?: {
+                in_library?: boolean | null;
+            };
+            header?: never;
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_asset_brands__brand_id__assets_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_asset_brands__brand_id__assets_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_asset_assets__asset_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_asset_assets__asset_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_asset_assets__asset_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_asset_file_assets__asset_id__file_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                    "image/jpeg": unknown;
+                    "image/webp": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reread_asset_assets__asset_id__read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_style_brands__brand_id__style_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StyleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_style_brands__brand_id__style_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BrandStyleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StyleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_style_brands__brand_id__style_read_post: {
+        parameters: {
+            query?: {
+                replace?: boolean;
+            };
+            header?: never;
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StyleOut"];
                 };
             };
             /** @description Validation Error */

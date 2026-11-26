@@ -14,6 +14,11 @@ export type ConversationSummary = components['schemas']['ConversationSummary']
 export type Conversation = components['schemas']['ConversationOut']
 export type Message = components['schemas']['MessageOut']
 export type ChatTurn = components['schemas']['ChatTurnOut']
+export type BrandDesign = components['schemas']['BrandDesign']
+export type BrandColor = components['schemas']['BrandColor']
+export type Asset = components['schemas']['AssetOut']
+export type AssetKind = Asset['kind']
+export type Style = components['schemas']['StyleOut']
 
 /** An error the API returned, with its status code and FastAPI's "detail" message. */
 export class ApiError extends Error {
@@ -38,6 +43,22 @@ export async function api<T>(path: string, init?: { method?: string; body?: unkn
   }
   return data as T
 }
+
+/** Upload a file as multipart form data (other fields are sent as form fields). */
+export async function upload<T>(path: string, file: File, fields: Record<string, string> = {}): Promise<T> {
+  const form = new FormData()
+  form.append('file', file)
+  for (const [k, v] of Object.entries(fields)) form.append(k, v)
+  const response = await fetch(BASE + path, { method: 'POST', body: form })
+  const data = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new ApiError(response.status, describeError(data) ?? `${response.status} ${response.statusText}`)
+  }
+  return data as T
+}
+
+/** The URL an uploaded image is served from (AssetOut.url is relative to the API). */
+export const assetUrl = (assetId: string) => `${BASE}/assets/${assetId}/file`
 
 // FastAPI errors look like {"detail": "brand not found"} or, for invalid input,
 // {"detail": [{"loc": ["body", "topic"], "msg": "Field required"}, ...]}.
