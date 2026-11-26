@@ -66,7 +66,10 @@ async def test_case_scores_rules_requests_and_breakage(tmp_path):
                             requests=["more Hinglish"])
     check = json.dumps({"checks": [{"request": "more Hinglish", "reason": "adds yaar", "evidence": "Yaar, ek cup aur?",
                                     "done": True}]})
-    client_for, _ = scripted(content=[json.dumps(revised)], reviewer=[PASS], feedback_check=[check], judge=[JUDGE_OK])
+    in_pipeline = json.dumps({"checks": [{"request": "hook as a question", "rule_kind": "hook_is_question",
+                                          "reason": "it is", "done": True}]})  # the revision's own check: done, no retry
+    client_for, _ = scripted(content=[json.dumps(revised)], reviewer=[PASS], feedback_check=[in_pipeline, check],
+                             judge=[JUDGE_OK])
     r = await rev.run_case(case, start, client_for=client_for, pricing_for=lambda n: INR, starts_dir=tmp_path)
 
     assert r.error is None

@@ -116,7 +116,10 @@ async def apply_revision(db: AsyncSession, post: Post, revised: PipelineResult, 
     post.history = [*post.history, {"draft": post.draft, "review": post.review, "feedback": feedback}]
     post.draft = revised.draft.model_dump(mode="json")
     post.review = revised.review.model_dump(mode="json")
-    post.feedback = [*post.feedback, _note("revise", feedback)]
+    note = _note("revise", feedback)
+    if revised.feedback_checks:  # what was / wasn't done, shown as ✓ / ✗ on the post and in the chat
+        note["checks"] = [c.model_dump(mode="json") for c in revised.feedback_checks]
+    post.feedback = [*post.feedback, note]
     await db.flush()
     await db.refresh(post)
     return post

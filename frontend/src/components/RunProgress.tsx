@@ -15,6 +15,7 @@ function stepLabel(agent: string): string {
     reviewer: 'Reviewing it',
   }
   if (fixed[agent]) return fixed[agent]
+  if (agent.startsWith('feedback_check')) return 'Checking your requests were done'
   if (agent.startsWith('feedback_revision')) return 'Applying your feedback'
   if (agent.startsWith('feedback_review')) return 'Reviewing the revision'
   if (agent.startsWith('revision')) return 'Fixing what the reviewer found'

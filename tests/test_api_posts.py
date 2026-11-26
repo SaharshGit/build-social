@@ -8,6 +8,10 @@ import pytest
 from buildsocial.worker import process_one
 from tests.test_api_runs import BRIEF, DRAFT, PASS, create_brand, happy_path, scripted, worker_deps
 
+# The feedback check's reply: one measurable request (code decides "done" from the post itself).
+WINDOW_SEATS_DONE = json.dumps({"checks": [{"request": "Mention the window seats", "rule_kind": "must_include",
+                                            "rule_value": "window seat", "reason": "added", "evidence": "", "done": True}]})
+
 REVISED = json.dumps(json.loads(DRAFT) | {"body": "Cosy corner, warm cup, and a window seat."})
 
 
@@ -54,12 +58,12 @@ async def test_revise_updates_the_same_post_and_keeps_history(client, db_maker, 
     run = r.json()
     assert run["kind"] == "revision" and run["status"] == "queued" and run["post_id"] is None
 
-    client_for, queues = scripted(content=[REVISED], reviewer=[PASS])
+    client_for, queues = scripted(content=[REVISED], reviewer=[PASS], feedback_check=[WINDOW_SEATS_DONE])
     await process_one(worker_deps(db_maker, client_for))
 
     run = (await client.get(f"/runs/{run['id']}")).json()
     assert run["status"] == "done" and run["post_id"] == pending_post  # the SAME post
-    assert [s["agent"] for s in run["steps"]] == ["feedback_revision_1", "feedback_review_1"]
+    assert [s["agent"] for s in run["steps"]] == ["feedback_revision_1", "feedback_review_1", "feedback_check_1"]
     assert all(not q for q in queues.values())
 
     p = (await client.get(f"/posts/{pending_post}")).json()
@@ -67,12 +71,16 @@ async def test_revise_updates_the_same_post_and_keeps_history(client, db_maker, 
     assert len(p["history"]) == 1 and p["history"][0]["feedback"] == "Mention the window seats."
     assert p["history"][0]["draft"]["body"] == "Cosy corner, warm cup."  # the old draft is kept
     assert p["feedback"][-1] == p["feedback"][-1] | {"kind": "revise", "text": "Mention the window seats."}
+    # The request was checked by code (a must_include rule) and is shown as done.
+    assert p["feedback"][-1]["checks"] == [{"request": "Mention the window seats", "done": True, "detail": "found",
+                                            "measured": True, "rule_kind": "must_include",
+                                            "rule_value": "window seat"}]
 
 
 async def test_revision_prompt_carries_the_feedback_and_original_plan(client, db_maker, pending_post):
     await client.post(f"/posts/{pending_post}/revise", json={"feedback": "Mention the window seats."})
     seen = []
-    client_for, _ = scripted(content=[REVISED], reviewer=[PASS])
+    client_for, _ = scripted(content=[REVISED], reviewer=[PASS], feedback_check=[WINDOW_SEATS_DONE])
 
     def spying_client_for(name):
         llm = client_for(name)

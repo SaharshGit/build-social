@@ -6,6 +6,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, model_validator
 
+from buildsocial.feedback_rules import Rule, rule_error
 from buildsocial.harness.agent import Agent
 from buildsocial.harness.skills import render_skills
 from buildsocial.agents.reviewer import quote_in
@@ -58,6 +59,9 @@ class ContentInput(BaseModel):
     plan: ContentPlan | None = None
     research: ResearchReport | None = None  # needed to resolve the plan's finding numbers
     revision: Revision | None = None  # set when rewriting after a review
+    # Measurable requests from the person (e.g. at most 400 characters), enforced in check(): they win over
+    # the platform defaults (e.g. "no hashtags" beats Instagram's usual minimum).
+    person_rules: list[Rule] = []
 
     @model_validator(mode="after")
     def _plan_needs_research(self) -> "ContentInput":
@@ -128,8 +132,14 @@ class ContentAgent(Agent[ContentInput, PostDraft]):
             errors.append(f"post: whole post must be at most {rules.post_max} characters (got {len(output.full_text)})")
 
         n = len(output.hashtags)
-        if not rules.hashtags_min <= n <= rules.hashtags_max:
-            errors.append(f"hashtags: need {rules.hashtags_min} to {rules.hashtags_max} (got {n})")
+        hashtags_min = rules.hashtags_min
+        for r in input.person_rules:  # the person's limit wins over the platform's minimum
+            if r.kind == "no_hashtags":
+                hashtags_min = 0
+            elif r.kind == "max_hashtags":
+                hashtags_min = min(hashtags_min, int(r.value or 0))
+        if not hashtags_min <= n <= rules.hashtags_max:
+            errors.append(f"hashtags: need {hashtags_min} to {rules.hashtags_max} (got {n})")
         for tag in output.hashtags:
             if not tag.startswith("#") or len(tag) < 2 or any(c.isspace() for c in tag):
                 errors.append(f"hashtags: '{tag}' must start with '#' and contain no spaces")
@@ -137,6 +147,8 @@ class ContentAgent(Agent[ContentInput, PostDraft]):
         # Each part of the post has its own field; the body must not duplicate them (seen in Step 2e).
         if _HASHTAG.search(output.body):
             errors.append("body: must not contain hashtags; put them only in the hashtags field")
+        errors += [f"request: {e}" for r in input.person_rules if (e := rule_error(r, output))]
+
         cta = _normalize(output.call_to_action)
         if cta and cta in _normalize(output.body):
             errors.append("body: must not repeat the call to action; it is added after the body automatically")

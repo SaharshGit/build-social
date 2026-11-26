@@ -23,6 +23,7 @@ from typing import Any
 
 from buildsocial import research_cache
 from buildsocial.agents.content import ContentAgent, ContentInput, Revision
+from buildsocial.agents.feedback_check import FeedbackCheckAgent, FeedbackCheckInput
 from buildsocial.agents.research import (
     MarketInput,
     MarketResearchAgent,
@@ -32,8 +33,9 @@ from buildsocial.agents.research import (
 )
 from buildsocial.agents.reviewer import ReviewerAgent, ReviewInput
 from buildsocial.agents.strategy import StrategyAgent, StrategyInput
-from buildsocial.harness.agent import AgentResult
-from buildsocial.harness.llm.base import LLMClient
+from buildsocial.feedback_rules import FeedbackResult, Rule, check_rule, missed_note
+from buildsocial.harness.agent import AgentError, AgentResult
+from buildsocial.harness.llm.base import LLMClient, LLMError
 from buildsocial.harness.llm.registry import Pricing, get_client, resolve_model
 from buildsocial.harness.storage import Storage
 from buildsocial.harness.trace import Tracer
@@ -77,6 +79,7 @@ class PipelineResult:
     review: Review  # the review of the final draft; its issues are still open
     history: list[tuple[PostDraft, Review]] = field(default_factory=list)  # earlier drafts and their reviews
     steps: list[StepRecord] = field(default_factory=list)
+    feedback_checks: list[FeedbackResult] = field(default_factory=list)  # after a feedback revision: what was done
 
     def totals(self) -> dict[str, float]:
         return _totals(self.steps)
@@ -257,28 +260,72 @@ async def revise_with_feedback(
     client_for: Callable[[str], LLMClient] = get_client,
     pricing_for: Callable[[str], Pricing] = default_pricing,
     on_progress: ProgressFn | None = None,
+    retry_missed: bool = True,
 ) -> PipelineResult:
-    """Apply a person's feedback: revise the draft (also fixing any still-open review issues), review again.
-
-    Same path as the reviewer's revisions, so the code checks and the re-review still apply.
+    """Apply a person's feedback: revise the draft (also fixing any still-open review issues), review again,
+    then CHECK the feedback was applied. If something was missed, revise once more with exactly what's
+    missing, and check again. The final checks are returned so the person can see ✓ / ✗ per request.
     """
     tracer = tracer or Tracer()
     run = StepRunner(tracer, client_for, pricing_for, on_progress)
     round_no = sum(1 for s in result.steps if s.agent.startswith("feedback_revision")) + 1
     tracer.event("human_feedback", round=round_no, feedback=feedback)
 
-    revision = Revision(previous=result.draft, issues=result.review.issues, human_feedback=feedback)
-    content_in = ContentInput(brand=brand, brief=brief, plan=result.plan, research=result.research, revision=revision)
-    draft = await run(ContentAgent(), content_in, label=f"feedback_revision_{round_no}")
-    review = await run(
-        ReviewerAgent(),
-        ReviewInput(brand=brand, brief=brief, plan=result.plan, research=result.research, draft=draft),
-        label=f"feedback_review_{round_no}",
-    )
+    async def revise(previous: PostDraft, issues, note: str, suffix: str,
+                     rules: list[Rule] | None = None) -> tuple[PostDraft, Review]:
+        revision = Revision(previous=previous, issues=issues, human_feedback=note)
+        content_in = ContentInput(brand=brand, brief=brief, plan=result.plan, research=result.research,
+                                  revision=revision, person_rules=rules or [])
+        new_draft = await run(ContentAgent(), content_in, label=f"feedback_revision_{round_no}{suffix}")
+        new_review = await run(
+            ReviewerAgent(),
+            ReviewInput(brand=brand, brief=brief, plan=result.plan, research=result.research, draft=new_draft),
+            label=f"feedback_review_{round_no}{suffix}",
+        )
+        return new_draft, new_review
+
+    draft, review = await revise(result.draft, result.review.issues, feedback, "")
+    checks = await check_feedback(run, feedback, result.draft, draft, label=f"feedback_check_{round_no}")
+    if retry_missed and any(not c.done for c in checks):
+        tracer.event("feedback_retry", round=round_no, missed=[c.request for c in checks if not c.done])
+        # The measured requests become hard rules for the writer this time: the agent's own
+        # validate-and-retry loop rejects drafts that break them, with the exact numbers.
+        rules = [r for c in checks if (r := c.rule())]
+        try:
+            draft, review = await revise(draft, review.issues, missed_note(feedback, checks), "_retry", rules)
+            checks = await check_feedback(run, feedback, result.draft, draft, label=f"feedback_check_{round_no}_retry")
+        except AgentError as e:  # couldn't comply even then: keep the first revision and its honest ✗
+            tracer.event("feedback_retry_failed", round=round_no, error=repr(e)[:300])
+
     return replace(
         result,
         draft=draft,
         review=review,
         history=result.history + [(result.draft, result.review)],
         steps=result.steps + run.steps,
+        feedback_checks=checks,
     )
+
+
+async def check_feedback(run: StepRunner, feedback: str, before: PostDraft, after: PostDraft,
+                         label: str) -> list[FeedbackResult]:
+    """Split the feedback into requests and check each on the new draft.
+
+    Measurable requests (rules) are decided by code, overriding the model. If the check itself fails
+    (model error), the revision is kept and simply has no checks.
+    """
+    try:
+        report = await run(FeedbackCheckAgent(), FeedbackCheckInput(
+            feedback=feedback, before=before.full_text, after=after.full_text), label=label)
+    except (AgentError, LLMError) as e:
+        run.tracer.event("feedback_check_failed", error=repr(e)[:300])
+        return []
+    results = []
+    for c in report.checks:
+        if c.rule_kind:
+            done, found = check_rule(Rule(kind=c.rule_kind, value=c.rule_value), after)
+            results.append(FeedbackResult(request=c.request, done=done, detail=found, measured=True,
+                                          rule_kind=c.rule_kind, rule_value=c.rule_value))
+        else:
+            results.append(FeedbackResult(request=c.request, done=c.done, detail=c.reason))
+    return results

@@ -76,3 +76,42 @@ def check_rule(rule: Rule, draft: PostDraft) -> tuple[bool, str]:
     if k == "must_not_include":
         return (v or "").lower() not in text.lower(), "absent" if (v or "").lower() not in text.lower() else "still there"
     raise ValueError(f"unknown rule {k}")
+
+
+class FeedbackResult(BaseModel):
+    """One request from the person's feedback, and whether the revised post does it."""
+
+    request: str
+    done: bool
+    detail: str = ""        # what was found ("455 characters") or the checker's reason
+    measured: bool = False  # True: checked by code (a rule), not by a model
+    rule_kind: RuleKind | None = None
+    rule_value: str | None = None
+
+    def rule(self) -> Rule | None:
+        return Rule(kind=self.rule_kind, value=self.rule_value) if self.rule_kind else None
+
+
+def rule_error(rule: Rule, draft: PostDraft) -> str | None:
+    """None if the draft follows the rule; else an exact, actionable error for the writer."""
+    passed, found = check_rule(rule, draft)
+    if passed:
+        return None
+    if rule.kind == "max_chars":
+        over = len(draft.full_text) - int(rule.value or 0)
+        return (f"the person asked for at most {rule.value} characters; the whole post (hook, body, call to action and "
+                f"hashtags) is {len(draft.full_text)}: cut at least {over} characters (shorten the body, use fewer hashtags)")
+    if rule.kind == "ends_with_question":
+        return ("the person asked to end with a question: call_to_action must END with '?' "
+                "(make it a question to the reader; nothing after the question mark)")
+    if rule.kind == "hook_is_question":
+        return "the person asked for the hook to be a question: the hook must end with '?'"
+    return f"the person asked: {rule.describe()} (now: {found})"
+
+
+def missed_note(feedback: str, results: list[FeedbackResult]) -> str:
+    """The feedback again, plus exactly what the last version still got wrong (for the retry)."""
+    missed = [r for r in results if not r.done]
+    lines = [feedback.strip(), "", "Your last version did NOT yet do these. Fix them while keeping everything else:"]
+    lines += [f"- {r.request} (now: {r.detail})" for r in missed]
+    return "\n".join(lines)

@@ -19,6 +19,7 @@ const PIPELINE: StepDef[] = [
 const REVISION: StepDef[] = [
   { key: 'feedback_revision', label: 'Revise', long: 'Apply your feedback' },
   { key: 'feedback_review', label: 'Review', long: 'Review the revision' },
+  { key: 'feedback_check', label: 'Check', long: 'Check your requests were done' },
 ]
 
 export type RecordedStep = { agent: string; model: string; attempts: number; seconds: number; cost: number; currency: string }
