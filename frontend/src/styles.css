@@ -326,3 +326,12 @@ blockquote.example { margin: 0 0 0.5rem; font-style: italic; }
 .feedback-checks li.missed .mark { color: var(--bad); }
 .suggestions-box { margin-top: 0.8rem; border: 1.5px dashed var(--soft-line); border-radius: 12px; padding: 0.5rem 0.8rem; }
 .suggestions-box ul { margin: 0.3rem 0 0; padding-left: 1.1rem; }
+
+/* Words on a single-image post (placeholder for the designed image) */
+.image-text {
+  border: 1px dashed var(--soft-line); border-radius: var(--radius); background: var(--panel);
+  padding: 1rem 1.2rem; margin: 0.6rem 0;
+}
+.image-text-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.image-text-headline { font-family: var(--font-heading); font-weight: 700; font-size: 1.4rem; color: var(--ink); margin-top: 0.3rem; }
+.image-text-subline { margin-top: 0.2rem; }

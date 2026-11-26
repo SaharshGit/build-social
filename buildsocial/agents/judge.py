@@ -57,11 +57,11 @@ class JudgeAgent(Agent[JudgeInput, Judgement]):
             f"Goal: {brief.goal}",
             "",
             "# Post",
-            draft.full_text,
+            draft.all_text,
         ])
 
     def check(self, output: Judgement, input: JudgeInput) -> list[str]:
-        text = input.draft.full_text
+        text = input.draft.all_text
         errors = []
         for field in ("invented_product_claims", "promised_results"):
             for quote in getattr(output, field):

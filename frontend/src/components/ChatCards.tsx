@@ -10,6 +10,7 @@ import { PLATFORM_LABELS } from '../lib/format'
 import { ErrorBox, Loading, StatusBadge } from './common'
 import FeedbackChecks, { latestChecks } from './FeedbackChecks'
 import Highlighted from './Highlighted'
+import ImageTextPreview from './ImageTextPreview'
 import PostActions from './PostActions'
 import StepChain from './StepChain'
 import { formatCost } from './RunProgress'
@@ -90,6 +91,7 @@ function PostCard({ postId }: { postId: string }) {
         <span className="spacer" />
         <Link to={`/posts/${p.id}`} className="small">Open full post →</Link>
       </div>
+      <ImageTextPreview post={p} quotes={issues.map((i) => i.quote)} />
       <Highlighted text={p.full_text} quotes={issues.map((i) => i.quote)} />
       {(() => {
         const last = latestChecks(p.feedback)

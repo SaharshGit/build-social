@@ -73,11 +73,8 @@ class ReviewerAgent(Agent[ReviewInput, Review]):
             ]
         sections += [
             "",
-            "# Draft to review",
-            f"HOOK: {draft.hook}",
-            f"BODY: {draft.body}",
-            f"CALL TO ACTION: {draft.call_to_action}",
-            f"HASHTAGS: {' '.join(draft.hashtags)}",
+            "# Draft to review" + (" (IMAGE lines are printed on the post's image)" if draft.image_text else ""),
+            draft.labelled(),
         ]
         return "\n".join(s for s in sections if s is not None).strip()
 
@@ -90,7 +87,7 @@ class ReviewerAgent(Agent[ReviewInput, Review]):
         if len(output.issues) > MAX_ISSUES:
             errors.append(f"issues: at most {MAX_ISSUES}; keep the most important")
 
-        draft_text = _normalize(input.draft.full_text)
+        draft_text = _normalize(input.draft.all_text)
         for i, issue in enumerate(output.issues, 1):
             if not issue.quote.strip():
                 errors.append(f"issue {i}: quote is empty; copy the problem words from the draft")

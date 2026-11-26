@@ -34,7 +34,7 @@ def judgement(invented=(), promised=(), voice=4, useful=3) -> str:
 
 def test_real_cases_file_loads_and_points_at_existing_files():
     cases = evals.load_cases(ROOT / "evals" / "cases.yaml")
-    assert len(cases) == 6 and len({c.id for c in cases}) == 6
+    assert len(cases) == 8 and len({c.id for c in cases}) == 8
     for c in cases:
         assert (ROOT / c.brand).exists() and (ROOT / c.research).exists(), c.id
 

@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from buildsocial.chat_data import TOOLS_HELP, DataQuery, Tool
 from buildsocial.harness.agent import Agent
-from buildsocial.schemas import Goal, Platform
+from buildsocial.schemas import Format, Goal, Platform
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
@@ -34,6 +34,8 @@ class ChatDecision(BaseModel):
     topic: str | None = Field(default=None, description="create_post: what the post is about")
     platform: Platform | None = Field(default=None, description="create_post: instagram or linkedin; lookup: filter")
     goal: Goal | None = Field(default=None, description="create_post: engagement / awareness / sales / community")
+    format: Format | None = Field(default=None, description="create_post: 'single_image' if the user asks for an "
+                                  "image, graphic, poster or creative; otherwise 'text'")
     notes: str | None = Field(default=None, description="create_post: anything the post must mention or avoid")
     # revise_post / reject_post
     feedback: str | None = Field(default=None, description="revise_post: what should change, in the user's words")

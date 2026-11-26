@@ -11,9 +11,11 @@ from pydantic import BaseModel, Field
 
 Platform = Literal["instagram", "linkedin"]
 Goal = Literal["engagement", "awareness", "sales", "community"]
-# Content formats. Each needs a skills file (skills/formats/<name>.md). Only text for now;
-# carousel, graphic, etc. are added here as they get built.
-Format = Literal["text"]
+# Content formats. Each needs a skills file (skills/formats/<name>.md). Carousel, reel, etc. are
+# added here as they get built.
+#   text:         caption only
+#   single_image: caption + one designed image; the writer also writes the words printed on the image
+Format = Literal["text", "single_image"]
 
 
 class Product(BaseModel):
@@ -79,6 +81,14 @@ class PostBrief(BaseModel):
     notes: str | None = None
 
 
+class ImageText(BaseModel):
+    """The words printed on a designed image. Written (and reviewed) with the caption; the design step
+    only places them, it never writes or changes words."""
+
+    headline: str = Field(description="The main words on the image: short and big, readable at a glance")
+    subline: str | None = Field(default=None, description="Optional one supporting line under the headline")
+
+
 class PostDraft(BaseModel):
     """The Content agent's output. Field descriptions are sent to the LLM as part of the JSON schema."""
 
@@ -89,12 +99,36 @@ class PostDraft(BaseModel):
     hashtags: list[str] = Field(description="Each starts with '#', no spaces")
     image_idea: str = Field(description="Short description of the visual to pair with the post")
     rationale: str = Field(description="Briefly, why this post should work for this brand and goal")
+    image_text: ImageText | None = Field(
+        default=None, description="ONLY for the single_image format: the words printed on the image. "
+                                  "null for text posts")
 
     @property
     def full_text(self) -> str:
-        """The post as it would be published (used for length checks)."""
+        """The caption as it would be published (used for length checks)."""
         parts = [self.hook, self.body, self.call_to_action, " ".join(self.hashtags)]
         return "\n\n".join(p for p in parts if p)
+
+    @property
+    def image_lines(self) -> list[str]:
+        if not self.image_text:
+            return []
+        return [t for t in (self.image_text.headline, self.image_text.subline) if t and t.strip()]
+
+    @property
+    def all_text(self) -> str:
+        """Everything a reader sees: the caption plus the words on the image. Reviews and claim checks use this."""
+        return "\n\n".join([self.full_text, *self.image_lines])
+
+    def labelled(self) -> str:
+        """The draft as agents are shown it, one labelled part per line."""
+        lines = [f"HOOK: {self.hook}", f"BODY: {self.body}", f"CALL TO ACTION: {self.call_to_action}",
+                 f"HASHTAGS: {' '.join(self.hashtags)}"]
+        if self.image_text:
+            lines.append(f"IMAGE HEADLINE: {self.image_text.headline}")
+            if self.image_text.subline:
+                lines.append(f"IMAGE SUBLINE: {self.image_text.subline}")
+        return "\n".join(lines)
 
 
 # ----------------------------------------------------------------------

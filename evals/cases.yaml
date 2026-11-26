@@ -49,3 +49,18 @@ cases:
     brief: {topic: "new Masala Chai Cold Brew", platform: linkedin, goal: awareness}
     must_include: ["masala chai cold brew"]
     must_not_include: ["antioxidant", "digestion", "healthy", "link in bio"]
+
+  # single_image: the caption plus the words printed on the image (all_text is checked)
+  - id: mamaearth-onion-image
+    brand: examples/mamaearth.yaml
+    research: evals/research/mamaearth-onion-oil.json
+    brief: {topic: "onion hair oil for winter hair care", platform: instagram, format: single_image, goal: engagement}
+    must_include: ["onion hair oil"]
+    must_not_include: ["hair fall", "regrowth", "chemical-free", "cures", "guaranteed"]
+
+  - id: brewhouse-chai-image
+    brand: examples/brew-house.yaml
+    research: evals/research/brew-house-masala-chai.json
+    brief: {topic: "new Masala Chai Cold Brew", platform: instagram, format: single_image, goal: sales}
+    must_include: ["masala chai cold brew"]
+    must_not_include: ["immunity", "starbucks"]

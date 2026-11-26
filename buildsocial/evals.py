@@ -78,7 +78,7 @@ def load_cases(path: Path = DEFAULT_CASES, only: list[str] | None = None) -> lis
 def code_checks(case: EvalCase, brand: BrandProfile, draft: PostDraft) -> list[str]:
     """Free, exact checks on the final post."""
     failures = ContentAgent().check(draft, ContentInput(brand=brand, brief=case.brief))  # platform rules
-    text = draft.full_text.lower()
+    text = draft.all_text.lower()
     failures += [f"missing required phrase: '{p}'" for p in case.must_include if p.lower() not in text]
     failures += [f"contains forbidden phrase: '{p}'" for p in case.must_not_include if p.lower() in text]
     return failures

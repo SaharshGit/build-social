@@ -506,6 +506,23 @@ export interface components {
             /** Database */
             database: string;
         };
+        /**
+         * ImageText
+         * @description The words printed on a designed image. Written (and reviewed) with the caption; the design step
+         *     only places them, it never writes or changes words.
+         */
+        ImageText: {
+            /**
+             * Headline
+             * @description The main words on the image: short and big, readable at a glance
+             */
+            headline: string;
+            /**
+             * Subline
+             * @description Optional one supporting line under the headline
+             */
+            subline?: string | null;
+        };
         /** MessageIn */
         MessageIn: {
             /** Text */
@@ -547,9 +564,9 @@ export interface components {
             /**
              * Format
              * @default text
-             * @constant
+             * @enum {string}
              */
-            format: "text";
+            format: "text" | "single_image";
             /**
              * Goal
              * @default engagement
@@ -599,6 +616,8 @@ export interface components {
              * @description Briefly, why this post should work for this brand and goal
              */
             rationale: string;
+            /** @description ONLY for the single_image format: the words printed on the image. null for text posts */
+            image_text?: components["schemas"]["ImageText"] | null;
         };
         /**
          * PostOut

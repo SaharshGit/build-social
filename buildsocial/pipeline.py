@@ -316,7 +316,7 @@ async def check_feedback(run: StepRunner, feedback: str, before: PostDraft, afte
     """
     try:
         report = await run(FeedbackCheckAgent(), FeedbackCheckInput(
-            feedback=feedback, before=before.full_text, after=after.full_text), label=label)
+            feedback=feedback, before=before.all_text, after=after.all_text), label=label)
     except (AgentError, LLMError) as e:
         run.tracer.event("feedback_check_failed", error=repr(e)[:300])
         return []

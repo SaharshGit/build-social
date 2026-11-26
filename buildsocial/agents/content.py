@@ -157,23 +157,48 @@ class ContentAgent(Agent[ContentInput, PostDraft]):
         # (a revision once removed the product entirely while fixing another sentence).
         for product in input.brand.products:
             name = product.name.lower()
-            if name in input.brief.topic.lower() and name not in output.full_text.lower():
+            if name in input.brief.topic.lower() and name not in output.all_text.lower():
                 errors.append(f"post: the brief is about '{product.name}', so the post must name it")
 
         for phrase in rules.banned_phrases:
             if phrase in output.full_text.lower():
                 errors.append(f"post: '{phrase}' doesn't exist on {platform}; rewrite that part for {platform}")
 
+        errors += _image_text_errors(output, input.brief.format)
+
         # A revision must actually remove what the reviewer flagged.
         if input.revision:
             for issue in input.revision.issues:
-                if len(issue.quote.strip()) >= MIN_CHECKED_QUOTE and quote_in(issue.quote, output.full_text):
+                if len(issue.quote.strip()) >= MIN_CHECKED_QUOTE and quote_in(issue.quote, output.all_text):
                     errors.append(
                         f"revision: '{issue.quote[:60]}' was flagged ({issue.type}) and is still in the draft; "
                         f"{issue.fix}"
                     )
 
         return errors
+
+
+# Words on an image must be readable at a glance on a phone.
+IMAGE_HEADLINE_MAX = 40
+IMAGE_SUBLINE_MAX = 90
+
+
+def _image_text_errors(output: PostDraft, format: str) -> list[str]:
+    it = output.image_text
+    if format != "single_image":
+        return ["image_text: must be null for a text post"] if it else []
+    if it is None or not it.headline.strip():
+        return ["image_text: a single_image post needs the words printed on the image (at least a headline)"]
+    errors = []
+    if len(it.headline) > IMAGE_HEADLINE_MAX:
+        errors.append(f"image_text.headline: at most {IMAGE_HEADLINE_MAX} characters (got {len(it.headline)}); "
+                      "use fewer, bigger words")
+    if it.subline and len(it.subline) > IMAGE_SUBLINE_MAX:
+        errors.append(f"image_text.subline: at most {IMAGE_SUBLINE_MAX} characters (got {len(it.subline)})")
+    for line in output.image_lines:
+        if _HASHTAG.search(line):
+            errors.append("image_text: no hashtags on the image; they belong in the hashtags field")
+    return errors
 
 
 _HASHTAG = re.compile(r"(?<!\w)#\w")  # '#word' not preceded by a letter (so 'C#' or URLs#x don't count)
@@ -197,10 +222,7 @@ def _revision_section(input: ContentInput) -> str | None:
         "brief's topic: it must still clearly name the product or subject.",
         "",
         "Previous draft:",
-        f"HOOK: {rev.previous.hook}",
-        f"BODY: {rev.previous.body}",
-        f"CALL TO ACTION: {rev.previous.call_to_action}",
-        f"HASHTAGS: {' '.join(rev.previous.hashtags)}",
+        rev.previous.labelled(),
     ]
     if rev.human_feedback:
         lines += ["", "Feedback from the person approving this post (most important):", rev.human_feedback.strip()]

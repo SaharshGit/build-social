@@ -153,7 +153,7 @@ async def run_case(case: RevisionCase, start: Start, *, tracer: Tracer | None = 
         report = None
         if case.requests:
             report = await checks(FeedbackCheckAgent(), FeedbackCheckInput(
-                feedback=case.feedback, requests=case.requests, before=before.draft.full_text, after=after.full_text))
+                feedback=case.feedback, requests=case.requests, before=before.draft.all_text, after=after.all_text))
         judgement = await checks(JudgeAgent(), JudgeInput(brand=brand, brief=start.brief, draft=after))
     except Exception as e:  # one failing case shouldn't stop the others
         return RevisionResult(id=case.id, error=repr(e)[:500], seconds=round(time.perf_counter() - started, 1))

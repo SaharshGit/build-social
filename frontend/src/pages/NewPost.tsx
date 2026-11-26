@@ -16,6 +16,7 @@ export default function NewPost() {
   const [brandId, setBrandId] = useState(params.get('brand') ?? '') // preselected from a brand's page
   const [topic, setTopic] = useState('')
   const [platform, setPlatform] = useState<Brief['platform']>('instagram')
+  const [format, setFormat] = useState<NonNullable<Brief['format']>>('text')
   const [goal, setGoal] = useState<NonNullable<Brief['goal']>>('engagement')
   const [notes, setNotes] = useState('')
 
@@ -32,7 +33,7 @@ export default function NewPost() {
         className="form"
         onSubmit={(e) => {
           e.preventDefault()
-          const brief: Brief = { topic: topic.trim(), platform, format: 'text', goal, notes: notes.trim() || null }
+          const brief: Brief = { topic: topic.trim(), platform, format, goal, notes: notes.trim() || null }
           start.mutate({ brandId, brief }, { onSuccess: (run) => navigate(`/runs/${run.id}`) })
         }}
       >
@@ -55,6 +56,13 @@ export default function NewPost() {
             <select value={platform} onChange={(e) => setPlatform(e.target.value as Brief['platform'])}>
               <option value="instagram">Instagram</option>
               <option value="linkedin">LinkedIn</option>
+            </select>
+          </label>
+          <label>
+            Format
+            <select value={format} onChange={(e) => setFormat(e.target.value as typeof format)}>
+              <option value="text">Text post</option>
+              <option value="single_image">Single image</option>
             </select>
           </label>
           <label>

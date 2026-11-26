@@ -110,7 +110,7 @@ async def _act(
             return "Which brand is this post for?", []
         conv.brand_id = brand.id  # naming another brand switches the chat to it
         brief = PostBrief(topic=d.topic or "", platform=d.platform or "instagram", goal=d.goal or "engagement",
-                          notes=d.notes)
+                          format=d.format or "text", notes=d.notes)
         run = await run_ops.create_run(db, brand, brief, trigger=RunTrigger.CHAT, conversation_id=conv.id)
         return d.reply, [{"type": "run", "id": str(run.id)}]
 

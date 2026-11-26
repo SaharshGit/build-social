@@ -65,16 +65,17 @@ def check_rule(rule: Rule, draft: PostDraft) -> tuple[bool, str]:
     if k == "no_hashtags":
         return not draft.hashtags and "#" not in text, f"{len(draft.hashtags)} hashtags"
     if k == "no_emojis":
-        found = _EMOJI.findall(text)
+        found = _EMOJI.findall(draft.all_text)
         return not found, f"emojis: {''.join(found)}" if found else "no emojis"
     if k == "hook_is_question":
         return _ends_with_question(draft.hook), f"hook: “{draft.hook.strip()[:80]}”"
     if k == "ends_with_question":
         return _ends_with_question(draft.call_to_action), f"ends: “{draft.call_to_action.strip()[-80:]}”"
+    seen = draft.all_text.lower()  # words on the image count too
     if k == "must_include":
-        return (v or "").lower() in text.lower(), "found" if (v or "").lower() in text.lower() else "not found"
+        return (v or "").lower() in seen, "found" if (v or "").lower() in seen else "not found"
     if k == "must_not_include":
-        return (v or "").lower() not in text.lower(), "absent" if (v or "").lower() not in text.lower() else "still there"
+        return (v or "").lower() not in seen, "absent" if (v or "").lower() not in seen else "still there"
     raise ValueError(f"unknown rule {k}")
 
 

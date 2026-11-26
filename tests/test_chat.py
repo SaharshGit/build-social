@@ -50,11 +50,22 @@ async def test_create_post_queues_a_run_and_titles_the_chat(client, chat, db_mak
     run = (await client.get(f"/runs/{card['id']}")).json()
     assert run["status"] == "queued" and run["brief"]["topic"] == "monsoon evenings"
     assert run["brief"]["goal"] == "engagement"  # default when the user didn't say
+    assert run["brief"]["format"] == "text"
 
     c = (await client.get(f"/conversations/{conv}")).json()
     assert c["brand_id"] == brand_id  # naming the brand sets it for the chat
     assert c["title"] == "Make an instagram post about monsoon evenings for…"
     assert [m["role"] for m in c["messages"]] == ["user", "assistant"]
+
+
+async def test_create_image_post_from_chat(client, chat):
+    await create_brand(client)
+    conv = await new_chat(client)
+    chat(decision("create_post", "On it", brand="Brew House", topic="cold brew", platform="instagram",
+                  format="single_image"))
+    turn = await say(client, conv, "Make an image post about cold brew")
+    run = (await client.get(f"/runs/{turn['assistant']['attachments'][0]['id']}")).json()
+    assert run["brief"]["format"] == "single_image"
 
 
 async def test_bad_decision_is_sent_back_to_the_model(client, chat):

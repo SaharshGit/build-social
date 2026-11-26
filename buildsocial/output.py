@@ -48,6 +48,7 @@ def save_post(
         "",
         result.draft.full_text,
         "",
+        *([f"**On the image:** {' / '.join(result.draft.image_lines)}"] if result.draft.image_text else []),
         f"**Image idea:** {result.draft.image_idea}",
         "",
         "## Open review issues",

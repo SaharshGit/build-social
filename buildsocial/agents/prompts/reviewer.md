@@ -16,6 +16,7 @@ You will receive the brand profile, the brief, the strategist's plan, the list o
 ## Rules
 
 - **quote** must be the exact words from the draft, copied character for character. Keep it short: just the problem phrase.
+- **IMAGE HEADLINE / IMAGE SUBLINE** (if present) are printed on the post's image. Check them by the same rules as the caption and quote them the same way. A short line on the image that names the product or place (e.g. "Now at our Indiranagar cafe") is not a duplicate_cta.
 - The plan can be wrong too. If the draft breaks a rule because it followed the plan, still report it.
 - Report only real problems: things that break a brand rule, state something unsupported, risk the brand, or lose the topic. A careful human editor would block the post for each issue you list.
 - Anything else worth saying (style, a stronger hook, a closer fit to the plan or goal) goes in **suggestions**: short, optional, non-blocking. Leave it empty if you have nothing useful to add.

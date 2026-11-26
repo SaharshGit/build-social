@@ -549,6 +549,8 @@ def print_draft(draft: PostDraft) -> None:
     print(f"\n{LINE}\n{draft.platform.upper()} POST\n{LINE}")
     print(draft.full_text)  # exactly as it would be published
     print(LINE)
+    if draft.image_text:
+        print(f"On image:   {' / '.join(draft.image_lines)}")
     print(f"Image idea: {draft.image_idea}")
     print(f"Rationale:  {draft.rationale}")
     print(f"Length:     hook {len(draft.hook)} chars, post {len(draft.full_text)} chars, {len(draft.hashtags)} hashtags")
