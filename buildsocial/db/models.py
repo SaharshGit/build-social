@@ -86,6 +86,10 @@ class Brand(Timestamps, Base):
     industry: Mapped[str] = mapped_column(String(200))  # with market: which shared market research
     market: Mapped[str] = mapped_column(String(200))
     profile: Mapped[dict[str, Any]]  # the full BrandProfile (voice, rules, products...), validated by Pydantic
+    # The brand's visual style, read by a model from its reference images (kind=reference), plus which
+    # images it used and what it cost. Kept outside the profile, so saving the profile never wipes it.
+    # Only the design step reads it: reference posts can contain prices or offers, never a claims source.
+    style: Mapped[dict[str, Any] | None]
 
     organization: Mapped[Organization] = relationship(back_populates="brands")
 
@@ -95,6 +99,7 @@ class AssetKind(StrEnum):
     PRODUCT = "product"      # the product itself (packshot, in use)
     LIFESTYLE = "lifestyle"  # people, scenes, moods
     PLACE = "place"          # the shop, cafe, office
+    REFERENCE = "reference"  # a past post or mood image that shows the brand's look (the reference board)
     OTHER = "other"
 
 

@@ -21,6 +21,7 @@ from buildsocial.harness.llm.registry import Pricing, get_client
 from buildsocial.harness.llm.types import ImageInput
 from buildsocial.harness.storage import Storage
 from buildsocial.harness.trace import Tracer
+from buildsocial.images import for_model
 from buildsocial.pipeline import StepRunner, default_pricing
 from buildsocial.schemas import BrandProfile
 
@@ -36,7 +37,8 @@ class ModelDeps:
 
 async def read_photo(db: AsyncSession, store: Storage, brand: Brand, asset: Asset, deps: ModelDeps) -> PhotoReading | None:
     profile = BrandProfile.model_validate(brand.profile)
-    image = ImageInput(mime_type=asset.content_type, data=store.read_bytes(asset.key), resolution="high")
+    data, mime = for_model(store.read_bytes(asset.key), max_side=1536)  # enough detail to read labels
+    image = ImageInput(mime_type=mime, data=data, resolution="high")
     tracer = deps.tracer_for(f"photo_{str(asset.id)[:8]}")
     run = StepRunner(tracer, deps.client_for, deps.pricing_for)
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")

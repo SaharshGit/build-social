@@ -117,7 +117,11 @@ async def test_upload_reads_the_photo(client, store, reader):  # noqa: F811
     assert a["analysis"]["text_space"] == ["top", "right"]
     assert a["analysis"]["model_cost"] == pytest.approx(0.02)  # 1500 x 10 + 200 x 25 per 1M tokens, in INR
     sent = reader.sent[0][-1]
-    assert len(sent.images) == 1 and sent.images[0].data == store.files[next(iter(store.files))]
+    assert len(sent.images) == 1 and sent.images[0].mime_type == "image/jpeg"  # a model copy, not the original
+    from PIL import Image
+    from io import BytesIO
+    with Image.open(BytesIO(sent.images[0].data)) as seen:
+        assert seen.size == (400, 300)  # small uploads aren't enlarged
     assert sent.images[0].resolution == "high"
 
 

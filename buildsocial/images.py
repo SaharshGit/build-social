@@ -68,3 +68,20 @@ def _reencode(im: Image.Image, fmt: str) -> CleanImage:
         im.save(out, "PNG", optimize=True)
     content_type, ext = ALLOWED[fmt]
     return CleanImage(out.getvalue(), content_type, ext, w, h)
+
+
+def for_model(data: bytes, max_side: int = 1024) -> tuple[bytes, str]:
+    """A smaller JPEG copy to send to a model: (bytes, content type).
+
+    Models don't need full resolution to judge style, and Gemini caps one request at 20 MB, so a board
+    of 15 full-size uploads would fail. One image is decoded at a time; draft() lets JPEGs decode at a
+    reduced size, so a 40 MP photo never sits fully in memory.
+    """
+    with Image.open(BytesIO(data)) as im:
+        if im.format == "JPEG":
+            im.draft("RGB", (max_side, max_side))
+        im = im.convert("RGB")  # model copies don't need transparency
+        im.thumbnail((max_side, max_side))
+        out = BytesIO()
+        im.save(out, "JPEG", quality=85)
+    return out.getvalue(), "image/jpeg"
