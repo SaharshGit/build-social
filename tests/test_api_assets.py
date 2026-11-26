@@ -7,7 +7,10 @@ import pytest
 import yaml
 from PIL import Image
 
-from buildsocial.api.deps import get_store
+from buildsocial.api.deps import get_model_deps, get_store
+from buildsocial.harness.llm.base import LLMError
+from buildsocial.photo_reading import ModelDeps
+from tests.test_api_runs import INR, scripted
 from buildsocial.harness.storage import MemoryStorage
 from buildsocial.images import MAX_BYTES
 from tests.test_api_runs import EXAMPLES, create_brand
@@ -18,7 +21,12 @@ GPS_TAG, ORIENTATION_TAG = 0x8825, 0x0112
 @pytest.fixture
 def store(client) -> MemoryStorage:
     store = MemoryStorage()
-    client._transport.app.dependency_overrides[get_store] = lambda: store
+    overrides = client._transport.app.dependency_overrides
+    overrides[get_store] = lambda: store
+    # These tests are about uploads, not reading: the photo reader always fails here, which also shows a
+    # failed reading never blocks an upload.
+    client_for, _ = scripted(photo_reader=[LLMError("model down")] * 20)
+    overrides[get_model_deps] = lambda: ModelDeps(client_for=client_for, pricing_for=lambda n: INR)
     return store
 
 

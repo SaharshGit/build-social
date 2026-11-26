@@ -11,6 +11,7 @@ from buildsocial.db.models import Organization
 from buildsocial.db.session import session
 from buildsocial.harness.storage import Storage, get_storage
 from buildsocial.harness.trace import tracer_for_storage
+from buildsocial.photo_reading import ModelDeps
 
 
 async def get_db() -> AsyncIterator[AsyncSession]:
@@ -30,6 +31,12 @@ async def current_org(db: AsyncSession = Depends(get_db)) -> Organization:
 def get_store() -> Storage:
     """Where files (uploaded images) go: the configured bucket or folder. Tests use memory storage."""
     return get_storage()
+
+
+def get_model_deps() -> ModelDeps:
+    """Models for one-off model steps (e.g. reading an uploaded photo), traced like the chat's."""
+    store = get_storage()
+    return ModelDeps(tracer_for=lambda label: tracer_for_storage(store, label))
 
 
 def get_chat_deps() -> ChatDeps:

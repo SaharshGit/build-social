@@ -212,7 +212,13 @@ def _message_to_step(m: Message) -> dict[str, Any]:
         step_type = "model_output"
     else:
         raise LLMError(f"Gemini adapter can't send '{m.role}' messages yet")
-    return {"type": step_type, "content": [{"type": "text", "text": m.content or ""}]}
+    content: list[dict[str, Any]] = [{"type": "text", "text": m.content or ""}]
+    for img in m.images:
+        block = {"type": "image", "data": img.b64(), "mime_type": img.mime_type}
+        if img.resolution:
+            block["resolution"] = img.resolution  # Gemini 3+: low 280 / medium 560 / high 1120 tokens
+        content.append(block)
+    return {"type": step_type, "content": content}
 
 
 def _stop_reason(data: dict[str, Any]) -> StopReason:

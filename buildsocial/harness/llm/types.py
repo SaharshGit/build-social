@@ -7,7 +7,9 @@ providers never changes agent code.
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+import base64
+
+from pydantic import BaseModel, Field, computed_field, model_validator
 
 Role = Literal["system", "user", "assistant", "tool"]
 
@@ -43,6 +45,29 @@ class ToolCall(BaseModel):
     arguments_error: str | None = None
 
 
+ImageResolution = Literal["low", "medium", "high"]
+
+
+class ImageInput(BaseModel):
+    """An image sent to a model with a user message.
+
+    The bytes are excluded from model_dump(), so traces and logs record only the type and size,
+    never the image itself (it can be megabytes, and it's the customer's file).
+    """
+
+    mime_type: str  # image/png, image/jpeg, image/webp
+    data: bytes = Field(exclude=True, repr=False)
+    resolution: ImageResolution | None = None  # detail level, where the provider supports it (Gemini)
+
+    @computed_field
+    @property
+    def size_bytes(self) -> int:
+        return len(self.data)
+
+    def b64(self) -> str:
+        return base64.b64encode(self.data).decode("ascii")
+
+
 class Message(BaseModel):
     """One entry in a conversation history."""
 
@@ -50,6 +75,7 @@ class Message(BaseModel):
     content: str | None = None
     tool_calls: list[ToolCall] = Field(default_factory=list)  # only on assistant messages
     tool_call_id: str | None = None  # only on tool messages
+    images: list[ImageInput] = Field(default_factory=list)  # only on user messages
 
     @model_validator(mode="after")
     def _check_role_fields(self) -> "Message":
@@ -57,6 +83,8 @@ class Message(BaseModel):
             raise ValueError("tool messages need a tool_call_id")
         if self.tool_calls and self.role != "assistant":
             raise ValueError("only assistant messages can contain tool_calls")
+        if self.images and self.role != "user":
+            raise ValueError("only user messages can contain images")
         return self
 
     # Shortcuts so agent code reads naturally: Message.user("hi")
@@ -65,8 +93,8 @@ class Message(BaseModel):
         return cls(role="system", content=content)
 
     @classmethod
-    def user(cls, content: str) -> "Message":
-        return cls(role="user", content=content)
+    def user(cls, content: str, images: list[ImageInput] | None = None) -> "Message":
+        return cls(role="user", content=content, images=images or [])
 
     @classmethod
     def tool_result(cls, tool_call_id: str, content: str) -> "Message":

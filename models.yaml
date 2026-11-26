@@ -73,5 +73,6 @@ agents:
   judge: deepseek-v4.1-flash      # evals only; cheap, and not the writer's model
   chat: deepseek-v4.1-flash       # chat assistant: decides actions; fast and reliable
   feedback_check: deepseek-v4.1-flash  # did a revision do what was asked? (not the writer's model)
+  photo_reader: gemini-3.5-flash-lite  # reads uploaded photos once (sees images; about INR 0.1 per photo)
   # strategy: sarvam-105b
   # content:  sarvam-105b

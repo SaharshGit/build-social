@@ -5,7 +5,11 @@
     GET    /assets/{asset_id}          details
     GET    /assets/{asset_id}/file     the image itself
     PATCH  /assets/{asset_id}          change kind / product / description / in_library
+    POST   /assets/{asset_id}/read     read the photo again with the image-reading model
     DELETE /assets/{asset_id}
+
+Uploads are read once by an image-reading model (about INR 0.1): what's in the photo, its colours and
+where text fits. If that fails the upload still succeeds; analysis then holds the error.
 """
 
 import uuid
@@ -13,13 +17,14 @@ import uuid
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from buildsocial.api.deps import current_org, get_db, get_store
+from buildsocial.api.deps import current_org, get_db, get_model_deps, get_store
 from buildsocial.api.schemas import AssetOut, AssetUpdate
 from buildsocial.db import assets as asset_ops
 from buildsocial.db import brands as brand_ops
 from buildsocial.db.models import Asset, AssetKind, Brand, Organization
 from buildsocial.harness.storage import Storage
 from buildsocial.images import MAX_BYTES, BadImage
+from buildsocial.photo_reading import ModelDeps, read_photo
 
 router = APIRouter(tags=["assets"])
 
@@ -48,6 +53,7 @@ async def upload_asset(
     db: AsyncSession = Depends(get_db),
     org: Organization = Depends(current_org),
     store: Storage = Depends(get_store),
+    models: ModelDeps = Depends(get_model_deps),
 ) -> AssetOut:
     brand = await _brand(db, org, brand_id)
     data = await file.read(MAX_BYTES + 1)  # never read more than the limit into memory
@@ -58,6 +64,7 @@ async def upload_asset(
                                              product=product, in_library=in_library)
     except (BadImage, asset_ops.UnknownProduct) as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e))
+    await read_photo(db, store, brand, asset, models)
     return AssetOut.from_row(asset)
 
 
@@ -107,6 +114,15 @@ async def update_asset(asset_id: uuid.UUID, change: AssetUpdate, db: AsyncSessio
     if "in_library" in sent and change.in_library is not None:
         asset.in_library = change.in_library
     await db.flush()
+    return AssetOut.from_row(asset)
+
+
+@router.post("/assets/{asset_id}/read", response_model=AssetOut)
+async def reread_asset(asset_id: uuid.UUID, db: AsyncSession = Depends(get_db),
+                       org: Organization = Depends(current_org), store: Storage = Depends(get_store),
+                       models: ModelDeps = Depends(get_model_deps)) -> AssetOut:
+    asset = await _asset(db, org, asset_id)
+    await read_photo(db, store, await _brand(db, org, asset.brand_id), asset, models)
     return AssetOut.from_row(asset)
 
 

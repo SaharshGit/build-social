@@ -122,6 +122,8 @@ class Asset(Timestamps, Base):
     # Written once by an image-reading model (what's in it, colours, where text fits); a person can edit it.
     # Never a source of product claims.
     description: Mapped[str | None] = mapped_column(Text)
+    # The photo reader's full output (colours, where text fits, issues...) plus its cost, or {"error": ...}.
+    analysis: Mapped[dict[str, Any] | None]
     in_library: Mapped[bool] = mapped_column(Boolean, default=True)
 
 

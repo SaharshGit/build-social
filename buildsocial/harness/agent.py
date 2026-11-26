@@ -22,7 +22,7 @@ from typing import Generic, TypeVar
 from pydantic import BaseModel, ValidationError
 
 from buildsocial.harness.llm.base import LLMClient
-from buildsocial.harness.llm.types import LLMResponse, Message, Usage
+from buildsocial.harness.llm.types import ImageInput, LLMResponse, Message, Usage
 from buildsocial.harness.trace import Tracer
 
 InputT = TypeVar("InputT", bound=BaseModel)
@@ -70,6 +70,10 @@ class Agent(ABC, Generic[InputT, OutputT]):
     def build_user_message(self, input: InputT) -> str:
         """Turn the typed input into the user message the LLM sees."""
 
+    def build_images(self, input: InputT) -> list[ImageInput]:
+        """Images to send with the user message (agents that look at pictures override this)."""
+        return []
+
     def check(self, output: OutputT, input: InputT) -> list[str]:
         """Deterministic rules the LLM can't be trusted with (lengths, counts, ...).
 
@@ -88,7 +92,7 @@ class Agent(ABC, Generic[InputT, OutputT]):
         started = time.perf_counter()
         messages = [
             Message.system(self.build_system_prompt(input)),
-            Message.user(self.build_user_message(input)),
+            Message.user(self.build_user_message(input), images=self.build_images(input)),
         ]
         usage = Usage()
         errors_by_attempt: list[list[str]] = []

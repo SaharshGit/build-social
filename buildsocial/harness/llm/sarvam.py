@@ -154,6 +154,13 @@ class SarvamClient(LLMClient):
 
 def _message_to_json(m: Message) -> dict[str, Any]:
     out: dict[str, Any] = {"role": m.role, "content": m.content}
+    if m.images:
+        # OpenAI-style content parts. Sarvam accepts images only as base64 data URIs, and only some
+        # models read them (gemma4); others return an error.
+        out["content"] = [{"type": "text", "text": m.content or ""}] + [
+            {"type": "image_url", "image_url": {"url": f"data:{img.mime_type};base64,{img.b64()}"}}
+            for img in m.images
+        ]
     if m.tool_calls:
         out["tool_calls"] = [
             {

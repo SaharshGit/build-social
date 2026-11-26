@@ -194,6 +194,7 @@ class AssetOut(BaseModel):
     original_name: str | None
     product: str | None
     description: str | None
+    analysis: dict[str, Any] | None  # the photo reader's findings (colours, text_space, issues...) or {"error"}
     in_library: bool
     created_at: datetime
 
@@ -202,7 +203,7 @@ class AssetOut(BaseModel):
         return cls(id=a.id, brand_id=a.brand_id, kind=AssetKind(a.kind), url=f"/assets/{a.id}/file",
                    content_type=a.content_type, size_bytes=a.size_bytes, width=a.width, height=a.height,
                    original_name=a.original_name, product=a.product, description=a.description,
-                   in_library=a.in_library, created_at=a.created_at)
+                   analysis=a.analysis, in_library=a.in_library, created_at=a.created_at)
 
 
 class AssetUpdate(BaseModel):
