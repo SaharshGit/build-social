@@ -10,7 +10,7 @@ from buildsocial.feedback_rules import Rule, rule_error
 from buildsocial.harness.agent import Agent
 from buildsocial.harness.skills import render_skills
 from buildsocial.agents.reviewer import quote_in
-from buildsocial.schemas import BrandProfile, ContentPlan, PostBrief, PostDraft, ResearchReport, ReviewIssue
+from buildsocial.schemas import BrandProfile, ContentPlan, PostBrief, PostDraft, ResearchReport, ReviewIssue, PRODUCTS_HEADING
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 SKILLS_DIR = Path(__file__).parent.parent / "skills"
@@ -98,7 +98,7 @@ class ContentAgent(Agent[ContentInput, PostDraft]):
             _bullets("Do", brand.dos),
             _bullets("Don't", brand.donts),
             "",
-            "# Products (the ONLY allowed facts about the brand's own products)",
+            PRODUCTS_HEADING,
             brand.products_text(),
             _bullets("Example posts (match the style, don't copy)", brand.example_posts),
             "",

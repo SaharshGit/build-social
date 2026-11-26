@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from buildsocial.agents.reviewer import quote_in
 from buildsocial.harness.agent import Agent
-from buildsocial.schemas import BrandProfile, PostBrief, PostDraft
+from buildsocial.schemas import BrandProfile, PostBrief, PostDraft, PRODUCTS_HEADING
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
@@ -48,7 +48,7 @@ class JudgeAgent(Agent[JudgeInput, Judgement]):
             f"Language: {brand.language}",
             f"Don'ts:\n{donts}",
             "",
-            "# Products (the only allowed facts about the brand's own products)",
+            PRODUCTS_HEADING,
             brand.products_text(),
             "",
             "# Brief",

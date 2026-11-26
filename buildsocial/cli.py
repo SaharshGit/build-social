@@ -131,6 +131,12 @@ def main(argv: list[str] | None = None) -> int:
     evr.add_argument("--make-starts", action="store_true",
                      help="(re)generate the fixed starting posts (about INR 0.15 each), then stop")
 
+    evv = commands.add_parser("eval-reviewer", help="score the reviewer and judge on hand-labelled posts")
+    evv.add_argument("--cases", type=Path, default=Path("evals/review_cases.yaml"))
+    evv.add_argument("--only", nargs="+", help="run only these case ids")
+    evv.add_argument("--label", default="run")
+    evv.add_argument("--concurrency", type=int, default=4)
+
     cmp = commands.add_parser("eval-compare", help="compare two saved eval runs")
     cmp.add_argument("a", help="saved run: storage key (evals/results/...json) or local path")
     cmp.add_argument("b", help="saved run: storage key or local path")
@@ -167,6 +173,8 @@ def main(argv: list[str] | None = None) -> int:
             return asyncio.run(import_brands(args.files))
         if args.command == "eval":
             return asyncio.run(run_evals(args))
+        if args.command == "eval-reviewer":
+            return asyncio.run(run_reviewer_evals(args))
         if args.command == "eval-revisions":
             return asyncio.run(run_revision_evals(args))
         if args.command == "eval-compare":
@@ -420,6 +428,19 @@ async def run_evals(args: argparse.Namespace) -> int:
     )
     print(evals.format_results(results))
     key = evals.save_results(results, args.label, store())
+    print(f"\nSaved: {store().location(key)}", file=sys.stderr)
+    return 0
+
+
+async def run_reviewer_evals(args: argparse.Namespace) -> int:
+    from buildsocial import review_evals as rv
+
+    cases = rv.load(args.cases, args.only)
+    print(f"Reviewing {len(cases)} labelled post(s), {args.concurrency} at a time...", file=sys.stderr)
+    results = await rv.run_eval(cases, concurrency=args.concurrency,
+                                tracer_for=lambda case: new_tracer(args, f"evalreview_{case.id}"))
+    print(rv.format_results(results))
+    key = rv.save_results(results, args.label, store())
     print(f"\nSaved: {store().location(key)}", file=sys.stderr)
     return 0
 

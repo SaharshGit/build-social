@@ -12,7 +12,7 @@ from buildsocial.harness.llm.base import LLMClient
 from buildsocial.harness.llm.registry import Pricing, TokenPrices
 from buildsocial.harness.llm.types import LLMResponse, Usage
 from buildsocial.pipeline import run_pipeline
-from buildsocial.schemas import BrandProfile, ContentPlan, PostBrief, PostDraft, ResearchReport, Review, ReviewIssue
+from buildsocial.schemas import PRODUCTS_HEADING, BrandProfile, ContentPlan, PostBrief, PostDraft, ResearchReport, Review, ReviewIssue
 
 ROOT = Path(__file__).parent.parent
 BRAND = BrandProfile.model_validate(yaml.safe_load((ROOT / "examples" / "mamaearth.yaml").read_text()))
@@ -185,7 +185,7 @@ def test_every_agent_sees_the_products_section():
         ReviewerAgent().build_user_message(review_input()),
     ]
     for msg in messages:
-        assert "# Products (the ONLY allowed facts about the brand's own products)" in msg
+        assert PRODUCTS_HEADING in msg
         assert products in msg
 
 

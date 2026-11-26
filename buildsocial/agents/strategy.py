@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from buildsocial.harness.agent import Agent
 from buildsocial.harness.skills import render_skills
-from buildsocial.schemas import BrandProfile, ContentPlan, PostBrief, ResearchReport
+from buildsocial.schemas import BrandProfile, ContentPlan, PostBrief, ResearchReport, PRODUCTS_HEADING
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 SKILLS_DIR = Path(__file__).parent.parent / "skills"
@@ -58,7 +58,7 @@ class StrategyAgent(Agent[StrategyInput, ContentPlan]):
             _bullets("Do", brand.dos),
             _bullets("Don't", brand.donts),
             "",
-            "# Products (the ONLY allowed facts about the brand's own products)",
+            PRODUCTS_HEADING,
             brand.products_text(),
             "",
             "# Brief",

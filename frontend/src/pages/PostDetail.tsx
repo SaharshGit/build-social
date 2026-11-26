@@ -115,10 +115,18 @@ export default function PostDetail() {
 }
 
 function IssueList({ post }: { post: Post }) {
+  const suggestions = post.review.suggestions ?? []
   if (post.review.issues.length === 0) {
-    return <p className="ok-text">✓ The reviewer found no open issues.</p>
+    return (
+      <>
+        <p className="ok-text">✓ The reviewer found no open issues.</p>
+        <Suggestions items={suggestions} />
+      </>
+    )
   }
   return (
+    <>
+    {/* real problems first; optional ideas below them */}
     <ol className="issue-list">
       {post.review.issues.map((issue, i) => (
         <li key={i} className="card small">
@@ -129,6 +137,19 @@ function IssueList({ post }: { post: Post }) {
         </li>
       ))}
     </ol>
+    <Suggestions items={suggestions} />
+    </>
+  )
+}
+
+/** The reviewer's optional, non-blocking ideas (style, a stronger hook...). They never block approval. */
+function Suggestions({ items }: { items: string[] }) {
+  if (items.length === 0) return null
+  return (
+    <div className="suggestions-box">
+      <div className="muted small"><strong>Optional suggestions</strong> (not problems; approve as is if you like)</div>
+      <ul className="small muted">{items.map((s, i) => <li key={i}>{s}</li>)}</ul>
+    </div>
   )
 }
 

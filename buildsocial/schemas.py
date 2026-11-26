@@ -31,6 +31,12 @@ class Product(BaseModel):
     )
 
 
+# The heading every agent sees above the brand's Products section (writer, strategist, reviewer, judge),
+# so they all apply the same rule.
+PRODUCTS_HEADING = ("# Products (the ONLY allowed claims about what the brand's products do or contain; "
+                    "what a product IS may also come from the brand description)")
+
+
 class BrandProfile(BaseModel):
     """A brand's identity. Written once per brand, reused for every post."""
 
@@ -206,4 +212,9 @@ class Review(BaseModel):
     """The Reviewer agent's output. Issues come first (look before judging), verdict last."""
 
     issues: list[ReviewIssue] = Field(description="Real problems only; empty if the draft is fine")
+    suggestions: list[str] = Field(
+        default_factory=list,
+        description="Optional improvements that are NOT rule breaks (style, a stronger hook, a closer fit to the plan). "
+                    "They don't block the post and don't count as issues.",
+    )
     verdict: Literal["pass", "revise"] = Field(description="'pass' if there are no issues, otherwise 'revise'")

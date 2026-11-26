@@ -13,7 +13,7 @@ from pathlib import Path
 from pydantic import BaseModel, model_validator
 
 from buildsocial.harness.agent import Agent
-from buildsocial.schemas import BrandProfile, ContentPlan, PostBrief, PostDraft, ResearchReport, Review
+from buildsocial.schemas import BrandProfile, ContentPlan, PostBrief, PostDraft, ResearchReport, Review, PRODUCTS_HEADING
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 MAX_ISSUES = 8
@@ -49,7 +49,7 @@ class ReviewerAgent(Agent[ReviewInput, Review]):
             f"Language: {brand.language}",
             _bullets("Don'ts", brand.donts),
             "",
-            "# Products (the ONLY allowed facts about the brand's own products)",
+            PRODUCTS_HEADING,
             brand.products_text(),
             _bullets("Example posts (wording must not be copied)", brand.example_posts),
             "",
