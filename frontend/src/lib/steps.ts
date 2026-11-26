@@ -61,3 +61,19 @@ export function stepSeconds(v: StepView) {
 export function stepCost(v: StepView) {
   return v.records.reduce((t, r) => t + r.cost, 0)
 }
+
+/** Where a run came from, in words: "from chat “Monsoon post…”", "from the New post form"… ('' for old runs). */
+export function triggerText(run: Run, chatTitles: Record<string, string>): string {
+  switch (run.trigger) {
+    case 'chat': {
+      const title = run.conversation_id ? chatTitles[run.conversation_id] : undefined
+      return run.conversation_id ? `from chat “${title ?? '…'}”` : 'from a chat (deleted)'
+    }
+    case 'form':
+      return run.kind === 'revision' ? 'from the post page' : 'from the New post form'
+    case 'schedule':
+      return 'from a schedule'
+    default:
+      return ''
+  }
+}

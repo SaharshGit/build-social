@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from buildsocial.db.models import Brand, Organization, Post, Run, RunKind, RunStatus
+from buildsocial.db.models import Brand, Organization, Post, Run, RunKind, RunStatus, RunTrigger
 from buildsocial.schemas import PostBrief
 
 
@@ -23,9 +23,12 @@ async def create_run(
     kind: RunKind = RunKind.PIPELINE,
     feedback: str | None = None,
     revises_post_id: uuid.UUID | None = None,
+    trigger: RunTrigger | None = None,
+    conversation_id: uuid.UUID | None = None,
 ) -> Run:
     run = Run(brand_id=brand.id, kind=kind, brief=brief.model_dump(mode="json"), feedback=feedback,
-              revises_post_id=revises_post_id, status=RunStatus.QUEUED)
+              revises_post_id=revises_post_id, status=RunStatus.QUEUED, trigger=trigger,
+              conversation_id=conversation_id)
     db.add(run)
     await db.flush()
     await db.refresh(run)

@@ -191,3 +191,19 @@ def test_short_title():
     assert short_title("How many posts are pending?") == "How many posts are pending?"
     t = short_title("Create an Instagram post about monsoon evenings at our cafe in Bengaluru, please")
     assert t == "Create an Instagram post about monsoon evenings…"
+
+
+async def test_runs_record_what_started_them(client, chat, db_maker):
+    brand_id = await create_brand(client)
+    # From the form (POST /brands/{id}/runs)
+    form_run = (await client.post(f"/brands/{brand_id}/runs", json={"topic": "x", "platform": "instagram"})).json()
+    assert form_run["trigger"] == "form" and form_run["conversation_id"] is None
+    # From the chat
+    conv = await new_chat(client, brand_id)
+    chat(decision("create_post", "On it", topic="monsoon", platform="instagram"))
+    run_id = (await say(client, conv, "monsoon post"))["assistant"]["attachments"][0]["id"]
+    chat_run = (await client.get(f"/runs/{run_id}")).json()
+    assert chat_run["trigger"] == "chat" and chat_run["conversation_id"] == conv
+    # And the list shows both
+    triggers = {r["id"]: r["trigger"] for r in (await client.get("/runs")).json()}
+    assert triggers == {form_run["id"]: "form", run_id: "chat"}

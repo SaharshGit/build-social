@@ -40,6 +40,14 @@ class RunKind(StrEnum):
     REVISION = "revision"  # a person's feedback on an existing post
 
 
+class RunTrigger(StrEnum):
+    """What started a run (shown in Pipelines). Runs from before this column existed have none."""
+
+    CHAT = "chat"          # the chat assistant (conversation_id says which chat)
+    FORM = "form"          # the app's New post form or a post's Revise button
+    SCHEDULE = "schedule"  # a schedule (coming)
+
+
 class PostStatus(StrEnum):
     PENDING = "pending"    # waiting for a person
     APPROVED = "approved"
@@ -100,6 +108,9 @@ class Run(Timestamps, Base):
     cost: Mapped[dict[str, Any]] = mapped_column(default=dict)  # totals per currency
     error: Mapped[str | None] = mapped_column(Text)
     trace_key: Mapped[str | None] = mapped_column(String(300))  # where the full trace is in storage
+    trigger: Mapped[str | None] = mapped_column(String(20))  # RunTrigger; None for runs from before it existed
+    # Chat runs: the chat that asked for it. Deleting the chat keeps the run.
+    conversation_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("conversations.id", ondelete="SET NULL", name="fk_runs_conversation_id"))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

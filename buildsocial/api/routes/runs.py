@@ -9,7 +9,7 @@ from buildsocial.api.deps import current_org, get_db
 from buildsocial.api.schemas import RunOut
 from buildsocial.db import brands as brand_ops
 from buildsocial.db import runs as run_ops
-from buildsocial.db.models import Organization, RunStatus
+from buildsocial.db.models import Organization, RunStatus, RunTrigger
 from buildsocial.schemas import PostBrief
 
 router = APIRouter(tags=["runs"])
@@ -25,7 +25,7 @@ async def start_run(
     brand = await brand_ops.get_brand(db, org, brand_id)
     if brand is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "brand not found")
-    run = await run_ops.create_run(db, brand, brief)
+    run = await run_ops.create_run(db, brand, brief, trigger=RunTrigger.FORM)
     return RunOut.from_row(run)
 
 

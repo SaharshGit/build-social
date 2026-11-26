@@ -58,6 +58,8 @@ class RunOut(BaseModel):
     cost: dict[str, float]  # totals so far, per currency
     error: str | None
     post_id: uuid.UUID | None  # set when done
+    trigger: str | None  # chat / form / schedule; None for old runs
+    conversation_id: uuid.UUID | None  # chat runs: which chat
     created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None
@@ -66,6 +68,7 @@ class RunOut(BaseModel):
     def from_row(cls, r: Run, post_id: uuid.UUID | None = None) -> "RunOut":
         return cls(id=r.id, brand_id=r.brand_id, kind=r.kind, status=r.status, brief=r.brief,
                    current_step=r.current_step, steps=r.steps, cost=r.cost, error=r.error, post_id=post_id,
+                   trigger=r.trigger, conversation_id=r.conversation_id,
                    created_at=r.created_at, started_at=r.started_at, finished_at=r.finished_at)
 
 

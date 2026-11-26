@@ -24,7 +24,7 @@ from buildsocial.db import posts as post_ops
 from buildsocial.db import runs as run_ops
 from buildsocial.db.models import (
     Brand, Conversation, Message, MessageRole, Organization, Post, PostStatus, Run, RunKind,
-    RunStatus,
+    RunStatus, RunTrigger,
 )
 from buildsocial.harness.agent import AgentError
 from buildsocial.harness.llm.base import LLMClient, LLMError
@@ -111,7 +111,7 @@ async def _act(
         conv.brand_id = brand.id  # naming another brand switches the chat to it
         brief = PostBrief(topic=d.topic or "", platform=d.platform or "instagram", goal=d.goal or "engagement",
                           notes=d.notes)
-        run = await run_ops.create_run(db, brand, brief)
+        run = await run_ops.create_run(db, brand, brief, trigger=RunTrigger.CHAT, conversation_id=conv.id)
         return d.reply, [{"type": "run", "id": str(run.id)}]
 
     if d.action in ("revise_post", "approve_post", "reject_post"):
@@ -127,7 +127,8 @@ async def _act(
                 original = await db.get(Run, post.run_id)
                 brand = await db.get(Brand, post.brand_id)
                 run = await run_ops.create_run(db, brand, PostBrief.model_validate(original.brief),
-                                               kind=RunKind.REVISION, feedback=d.feedback, revises_post_id=post.id)
+                                               kind=RunKind.REVISION, feedback=d.feedback, revises_post_id=post.id,
+                                               trigger=RunTrigger.CHAT, conversation_id=conv.id)
                 return d.reply, [{"type": "run", "id": str(run.id)}]
             status = PostStatus.APPROVED if d.action == "approve_post" else PostStatus.REJECTED
             await post_ops.decide(db, post, status, d.reason)
