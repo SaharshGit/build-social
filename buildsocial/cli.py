@@ -123,6 +123,14 @@ def main(argv: list[str] | None = None) -> int:
     ev.add_argument("--concurrency", type=int, default=3)
     ev.add_argument("--max-revisions", type=int, default=1, help="automatic revise rounds per post")
 
+    evr = commands.add_parser("eval-revisions", help="score revisions: does a revision do what the feedback asked?")
+    evr.add_argument("--cases", type=Path, default=Path("evals/revision_cases.yaml"))
+    evr.add_argument("--only", nargs="+", help="run only these case ids")
+    evr.add_argument("--label", default="run")
+    evr.add_argument("--concurrency", type=int, default=3)
+    evr.add_argument("--make-starts", action="store_true",
+                     help="(re)generate the fixed starting posts (about INR 0.15 each), then stop")
+
     cmp = commands.add_parser("eval-compare", help="compare two saved eval runs")
     cmp.add_argument("a", help="saved run: storage key (evals/results/...json) or local path")
     cmp.add_argument("b", help="saved run: storage key or local path")
@@ -159,6 +167,8 @@ def main(argv: list[str] | None = None) -> int:
             return asyncio.run(import_brands(args.files))
         if args.command == "eval":
             return asyncio.run(run_evals(args))
+        if args.command == "eval-revisions":
+            return asyncio.run(run_revision_evals(args))
         if args.command == "eval-compare":
             print(evals.compare(read_saved(args.a), read_saved(args.b)))
             return 0
@@ -410,6 +420,32 @@ async def run_evals(args: argparse.Namespace) -> int:
     )
     print(evals.format_results(results))
     key = evals.save_results(results, args.label, store())
+    print(f"\nSaved: {store().location(key)}", file=sys.stderr)
+    return 0
+
+
+async def run_revision_evals(args: argparse.Namespace) -> int:
+    from buildsocial import revision_evals as rev
+
+    starts, cases = rev.load(args.cases, args.only)
+    if args.make_starts:
+        for start in starts.values():
+            tracer = new_tracer(args, f"revstart_{start.id}")
+            try:
+                path = await rev.make_start(start, tracer=tracer)
+            finally:
+                tracer.close()
+            print(f"saved {path}", file=sys.stderr)
+        return 0
+    missing = [s for s in {c.start for c in cases} if not (rev.STARTS_DIR / f"{s}.json").exists()]
+    if missing:
+        print(f"Missing starting posts {missing}: run with --make-starts first.", file=sys.stderr)
+        return 1
+    print(f"Running {len(cases)} revision case(s), {args.concurrency} at a time...", file=sys.stderr)
+    results = await rev.run_eval(cases, starts, concurrency=args.concurrency,
+                                 tracer_for=lambda case: new_tracer(args, f"evalrev_{case.id}"))
+    print(rev.format_results(results))
+    key = rev.save_results(results, args.label, store())
     print(f"\nSaved: {store().location(key)}", file=sys.stderr)
     return 0
 

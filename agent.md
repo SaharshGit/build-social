@@ -95,4 +95,19 @@
   (FK, ON DELETE SET NULL), migration 379e721dc043. Chat sets chat + conversation; New post form and Revise
   button set form. RunOut exposes both; Pipelines shows "New post from chat “title”" etc., detail links to the chat.
   Next: quality Q1-Q2, then schedules S1-S3.
+- Q1 done (branch sg/quality): revision evals. `buildsocial eval-revisions [--make-starts]`, cases in
+  evals/revision_cases.yaml, fixed starting posts in evals/revision_starts/. Measurable requests are checked by
+  code (buildsocial/feedback_rules.py); others by FeedbackCheckAgent (DeepSeek, must quote evidence).
+  Baseline 2026-11-26: 3/7 cases pass, 6/9 requests done, 1 broke (judge flagged "we built Coin"; maybe strict).
+  Misses: under-400 -> 455 chars; "friendlier" only slightly; "end with a question" -> question then a CTA.
+  Cost: starts + baseline INR 0.75. Next: Q2 (check feedback after revising, one retry, show ✓/✗ on the post).
+- Q2 done: revise_with_feedback now checks the feedback (FeedbackCheckAgent splits it into requests; measurable
+  ones decided by code), retries ONCE if anything was missed with the measured requests as hard rules in
+  ContentAgent.check (exact errors, e.g. "cut at least 149 characters"); if the writer still can't comply the
+  first revision is kept and shown honestly. Checks are stored on the post's revise note ("checks") and shown as
+  "Your requests ✓/✗" on the post page and the chat card; Pipelines shows a "Check" step.
+  Revision evals (7 cases): baseline 3/7 pass, 6/9 requests -> check+retry 4/7, 7/9 -> hard rules 4/7, 8/9
+  (measurable requests 5/7 -> 7/7). Remaining failures: tone requests vary run to run ("friendlier"), and the
+  judge flags writer claims ("aapko zaroor pasand aayega", Coin wording): that's Q3 (reviewer/judge strictness,
+  promised results). Spend today ~INR 2.1 (all DeepSeek/Sarvam, no Gemini).
 

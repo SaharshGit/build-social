@@ -69,16 +69,66 @@ def test_revision_needs_issues_or_feedback():
 
 
 async def test_revise_with_feedback_rewrites_then_reviews_again():
-    llms = {"content": FakeLLM([SHORTER.model_dump_json()]), "reviewer": FakeLLM([PASS.model_dump_json()])}
+    check = json.dumps({"checks": [{"request": "Mention Redensyl", "reason": "it does", "evidence": "", "done": True}]})
+    llms = {"content": FakeLLM([SHORTER.model_dump_json()]), "reviewer": FakeLLM([PASS.model_dump_json()]),
+            "feedback_check": FakeLLM([check])}
     tracer = MemoryTracer()
     result = await revise_with_feedback(base_result(), BRAND, BRIEF, "Mention Redensyl.", tracer=tracer,
                                         client_for=lambda n: llms[n], pricing_for=lambda n: INR)
 
     assert result.draft == SHORTER and result.review.verdict == "pass"
     assert result.history == [(DRAFT, PASS)]  # the earlier draft is kept
-    assert [s.agent for s in result.steps] == ["feedback_revision_1", "feedback_review_1"]
+    assert [s.agent for s in result.steps] == ["feedback_revision_1", "feedback_review_1", "feedback_check_1"]
+    assert [(c.request, c.done) for c in result.feedback_checks] == [("Mention Redensyl", True)]
     assert "Mention Redensyl." in llms["content"].calls[0][1].content
     assert any(r["type"] == "human_feedback" for r in tracer.records)
+
+
+async def test_missed_feedback_is_retried_once_with_the_rule_enforced():
+    # The model claims "done", but code measures the post and finds it too long.
+    limit = len(DRAFT.full_text) - 5
+    check = json.dumps({"checks": [{"request": f"Under {limit} characters", "rule_kind": "max_chars",
+                                    "rule_value": str(limit), "reason": "looks short", "done": True}]})
+    short = DRAFT.model_copy(update={"body": "Onion Hair Oil."})
+    llms = {"content": FakeLLM([SHORTER.model_dump_json(), short.model_dump_json()]),
+            "reviewer": FakeLLM([PASS.model_dump_json(), PASS.model_dump_json()]),
+            "feedback_check": FakeLLM([check, check])}
+    result = await revise_with_feedback(base_result(), BRAND, BRIEF, f"Under {limit} characters.",
+                                        tracer=MemoryTracer(), client_for=lambda n: llms[n], pricing_for=lambda n: INR)
+
+    assert [s.agent for s in result.steps] == [
+        "feedback_revision_1", "feedback_review_1", "feedback_check_1",
+        "feedback_revision_1_retry", "feedback_review_1_retry", "feedback_check_1_retry"]
+    retry_prompt = llms["content"].calls[1][1].content
+    assert "did NOT yet do these" in retry_prompt and "characters (now:" in retry_prompt
+    assert result.draft == short
+    [c] = result.feedback_checks
+    assert c.done and c.measured  # code measured the retried post: now under the limit
+
+
+async def test_if_the_writer_cant_comply_the_first_revision_is_kept():
+    check = json.dumps({"checks": [{"request": "Under 20 characters", "rule_kind": "max_chars", "rule_value": "20",
+                                    "reason": "looks short", "done": True}]})
+    # First revision, then the retry: 3 attempts that all break the 20-character rule.
+    llms = {"content": FakeLLM([SHORTER.model_dump_json()] * 4), "reviewer": FakeLLM([PASS.model_dump_json()]),
+            "feedback_check": FakeLLM([check])}
+    tracer = MemoryTracer()
+    result = await revise_with_feedback(base_result(), BRAND, BRIEF, "Under 20 characters.", tracer=tracer,
+                                        client_for=lambda n: llms[n], pricing_for=lambda n: INR)
+
+    assert result.draft == SHORTER  # the first revision is kept; the revision didn't fail
+    [c] = result.feedback_checks
+    assert not c.done and "characters" in c.detail  # shown honestly as ✗
+    assert "cut at least" in llms["content"].calls[-1][-1].content  # the writer was told exactly what to cut
+    assert any(r["type"] == "feedback_retry_failed" for r in tracer.records)
+
+
+async def test_a_failing_check_keeps_the_revision():
+    llms = {"content": FakeLLM([SHORTER.model_dump_json()]), "reviewer": FakeLLM([PASS.model_dump_json()]),
+            "feedback_check": FakeLLM(["not json", "still not json", "nope"])}
+    result = await revise_with_feedback(base_result(), BRAND, BRIEF, "Mention Redensyl.", tracer=MemoryTracer(),
+                                        client_for=lambda n: llms[n], pricing_for=lambda n: INR)
+    assert result.draft == SHORTER and result.feedback_checks == []
 
 
 # --- the approval loop ------------------------------------------------------------------

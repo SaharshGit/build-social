@@ -1,0 +1,40 @@
+{
+  "plan": {
+    "brief_concerns": [],
+    "rationale": "Zerodha's brief asks for awareness on how direct mutual funds differ from regular plans. The brand rules strictly forbid giving investment advice, promising returns, or implying easy money. Finding 5 discusses 'higher effective long-term returns', which sounds like a promised result; therefore, I built the angle on the neutral structural difference (Finding 3: same portfolio, different purchase path/cost structure via Finding 4) rather than the outcome. The angle focuses on the educational distinction of how these plans are purchased and their cost structure, aligning with Zerodha's educational pillar and the 'Building in public' tone by explaining the mechanics simply.",
+    "rules_check": "The brand forbids promising results, giving investment advice, or mentioning specific returns. Finding 5 is a result-oriented statement ('leading to higher effective long-term returns'). To avoid breaking the rules, the angle and key message do not state that direct plans yield higher returns. Instead, they focus on the neutral structural fact that both plans share the same portfolio (Finding 3) and differ in how they are purchased and their expense ratios (Finding 1, 2, 4). No health claims or competitor mentions are used.",
+    "angle": "Share a simple, internal observation about how easily investors confuse the two plan types because the underlying portfolio is identical, then clarify the difference in purchase path and cost structure as an educational insight.",
+    "key_message": "Direct and regular mutual fund plans share the same underlying portfolio and fund manager, but direct plans are purchased without intermediary commissions, resulting in a lower expense ratio.",
+    "finding_ids": [
+      3,
+      1,
+      4
+    ],
+    "cta_direction": "Invite readers to share their own learning experience or understanding in the comments, or to visit the company page to learn more about direct investing tools."
+  },
+  "draft": {
+    "platform": "linkedin",
+    "hook": "Most investors assume direct and regular mutual funds are different products. They are not, and the confusion is understandable.",
+    "body": "Both plan types of the same mutual fund scheme share the exact same underlying portfolio, fund manager, and investment strategy. The real difference lies in how you purchase the units and what you pay for it.\n\nInvestors buy direct plan units directly from the Asset Management Company or through online investment platforms without intermediaries. Regular plans carry a higher expense ratio because they include distribution commissions paid to the intermediary, whereas direct plans do not include these commissions. The portfolio remains identical; only the cost structure and the purchase path change.",
+    "call_to_action": "Have you switched from regular to direct plans, or did you learn this distinction recently? Share your experience in the comments, or head to Varsity to read more about how mutual funds work.",
+    "hashtags": [
+      "#MutualFunds",
+      "#Investing",
+      "#DirectPlans",
+      "#Finance"
+    ],
+    "image_idea": "A clean split-screen graphic showing identical portfolio charts on one side and a simplified fee breakdown on the other.",
+    "rationale": "The post opens with a relatable misconception to stop the scroll, then explains the identical portfolio and fund manager using only category-level facts. It clarifies the difference in purchase path and expense ratio without promising returns or giving investment advice, and closes by inviting comments and pointing to Varsity for further education."
+  },
+  "review": {
+    "issues": [
+      {
+        "type": "off_plan",
+        "quote": "head to Varsity to read more about how mutual funds work",
+        "problem": "The CTA sends readers to Varsity for general mutual fund education, but the brief's topic is how direct plans differ from regular plans, and Varsity is only approved as a free education platform, not as a source on direct investing tools.",
+        "fix": "Rewrite the CTA to invite readers to share their experience in the comments, and drop the Varsity pointer or keep it generic without implying it covers direct investing tools."
+      }
+    ],
+    "verdict": "revise"
+  }
+}

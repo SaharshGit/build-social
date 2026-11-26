@@ -8,6 +8,7 @@ import { Link } from 'react-router'
 import { isActive, useBrandNames, usePost, useRefreshAfterRun, useRun } from '../api/hooks'
 import { PLATFORM_LABELS } from '../lib/format'
 import { ErrorBox, Loading, StatusBadge } from './common'
+import FeedbackChecks, { latestChecks } from './FeedbackChecks'
 import Highlighted from './Highlighted'
 import PostActions from './PostActions'
 import StepChain from './StepChain'
@@ -90,6 +91,10 @@ function PostCard({ postId }: { postId: string }) {
         <Link to={`/posts/${p.id}`} className="small">Open full post →</Link>
       </div>
       <Highlighted text={p.full_text} quotes={issues.map((i) => i.quote)} />
+      {(() => {
+        const last = latestChecks(p.feedback)
+        return last && <FeedbackChecks checks={last.checks} compact />
+      })()}
       {issues.length > 0 && (
         <p className="small muted">
           {issues.length} open review issue{issues.length > 1 ? 's' : ''} (highlighted). Ask me about them, or open

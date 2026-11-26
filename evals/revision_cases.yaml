@@ -1,0 +1,63 @@
+# Revision evals: does a revision do what the person asked, without breaking anything?
+#
+# starts: fixed starting posts. Made once with `buildsocial eval-revisions --make-starts` (frozen research,
+#         about INR 0.15 each) and saved to evals/revision_starts/<id>.json, so every run revises the same post.
+# cases:  feedback on one start.
+#   rules:    measurable requests, checked by code (feedback_rules.py): max_chars, max_hashtags, no_hashtags,
+#             no_emojis, hook_is_question, ends_with_question, must_include, must_not_include
+#   requests: everything else, judged by the feedback-check model, which must quote evidence
+# A case passes when every rule and request is done AND nothing broke (platform rules, no invented
+# product claims, no promised results).
+#
+# Run:      uv run buildsocial eval-revisions --label baseline
+
+starts:
+  - id: brewhouse-chai-instagram
+    brand: examples/brew-house.yaml
+    research: evals/research/brew-house-masala-chai.json
+    brief: {topic: "new Masala Chai Cold Brew", platform: instagram, goal: sales}
+  - id: mamaearth-onion-instagram
+    brand: examples/mamaearth.yaml
+    research: evals/research/mamaearth-onion-oil.json
+    brief: {topic: "onion hair oil for winter hair care", platform: instagram, goal: engagement}
+  - id: zerodha-mf-linkedin
+    brand: examples/zerodha.yaml
+    research: evals/research/zerodha-direct-mf.json
+    brief: {topic: "how direct mutual funds differ from regular plans", platform: linkedin, goal: awareness}
+
+cases:
+  - id: brew-under-400
+    start: brewhouse-chai-instagram
+    feedback: "Keep the whole post under 400 characters."
+    rules: [{kind: max_chars, value: "400"}]
+
+  - id: brew-hook-question
+    start: brewhouse-chai-instagram
+    feedback: "Make the hook a question."
+    rules: [{kind: hook_is_question}]
+
+  - id: brew-more-hinglish
+    start: brewhouse-chai-instagram
+    feedback: "Make it more Hinglish, like friends in Bengaluru talk."
+    requests: ["Noticeably more Hinglish (Hindi words mixed into the English) than before"]
+
+  - id: mama-max-3-hashtags
+    start: mamaearth-onion-instagram
+    feedback: "Use at most 3 hashtags."
+    rules: [{kind: max_hashtags, value: "3"}]
+
+  - id: mama-friendlier-winter
+    start: mamaearth-onion-instagram
+    feedback: "Make it friendlier and less like an ad, and say winter clearly."
+    rules: [{kind: must_include, value: "winter"}]
+    requests: ["Friendlier and less like an advert than before"]
+
+  - id: zerodha-no-emojis-question
+    start: zerodha-mf-linkedin
+    feedback: "No emojis, and end with a question to the reader."
+    rules: [{kind: no_emojis}, {kind: ends_with_question}]
+
+  - id: zerodha-mention-coin
+    start: zerodha-mf-linkedin
+    feedback: "Mention Coin, our direct mutual fund platform, by name."
+    rules: [{kind: must_include, value: "Coin"}]

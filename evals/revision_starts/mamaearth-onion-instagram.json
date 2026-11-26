@@ -1,0 +1,51 @@
+{
+  "plan": {
+    "brief_concerns": [
+      "The research indicates that India is experiencing unseasonably warm daytime temperatures (30°C–36°C) and sharp nocturnal humidity drops due to a Super El Niño pattern (Finding 9), which contradicts the brief's focus on 'winter hair care' and cold-weather dryness. Additionally, the post-festive window is ongoing (November 2026), but the specific event mentioned in Finding 15 (BEAUTY&YOU India cohort announcement) already occurred in November 2026.",
+      "The brief asks for a post on onion hair oil for winter hair care. Given Finding 9, the actual weather is unseasonably warm during the day, though nights are dry. The angle should focus on the dry, sharp nocturnal humidity drops and barrier protection rather than classic cold winter, to align with current conditions while respecting the brief's topic."
+    ],
+    "rationale": "The angle connects the brand's Onion Hair Oil (toxin-free, made with onion oil and Redensyl) to the current seasonal challenge of dry, sharp nighttime humidity drops and unseasonably warm days that strip moisture. We use Finding 4 (winter in India brings lower humidity and cold air that strip scalp moisture) and Finding 5 (washing hair with very hot water during winter strips the scalp's natural lipid barrier) as general background about the season, and Finding 1 (onion oil combinations) to explain the formulation simply. We avoid promising results like 'repairs' or 'stops shedding' per brand rules, and do not mention Redensyl's specific action to avoid medical claims, staying within the approved claim of 'Made with onion oil and Redensyl'. The tone is warm and practical, fitting Mamaearth's voice.",
+    "rules_check": "Brand rules: No medical/therapeutic claims (e.g., stops hair fall), no guaranteed results/timelines, never say 'chemical-free' (use 'toxin-free' if needed, but not required here), no competitor mentions, no invented offers/discounts/certifications. The key message states a neutral fact/habit (avoiding hot water and using oil) rather than what the product will do. We do not claim the product cures or treats anything.",
+    "angle": "A relatable, warm hook about how unseasonably warm days and sharp nighttime humidity drops are secretly drying out your hair right now, paired with a simple, doable winter oiling habit using Mamaearth's Onion Hair Oil.",
+    "key_message": "Winter air and hot showers strip your scalp's natural moisture, so a gentle oiling routine helps keep your barrier comfortable.",
+    "finding_ids": [
+      1,
+      4,
+      5
+    ],
+    "cta_direction": "Save this post for your winter hair care routine or DM us if you want tips on balancing unseasonably warm days with nighttime dryness."
+  },
+  "draft": {
+    "platform": "instagram",
+    "hook": "Unseasonably warm days + sharp night drops are quietly drying out your hair.",
+    "body": "Winter in India brings lower humidity and cold air that can lift your cuticles and make hair feel brittle.\nWashing with very hot water during winter strips the scalp's natural barrier, leaving it tight and dry.\nA simple oiling habit can help keep your scalp feeling comfortable.\nOur Onion Hair Oil is made with onion oil and Redensyl. It is toxin-free.\nJust a gentle massage before your shower to make oiling feel like a small ritual.",
+    "call_to_action": "Save this post for your winter hair care routine, or DM us if you want tips on balancing warm days with nighttime dryness.",
+    "hashtags": [
+      "#Mamaearth",
+      "#OnionHairOil",
+      "#WinterHairCare",
+      "#ToxinFree",
+      "#HairCareRoutine",
+      "#IndianWinter"
+    ],
+    "image_idea": "A cozy flatlay of the Mamaearth Onion Hair Oil bottle next to a steam mug on a wooden surface, evoking a winter self-care moment.",
+    "rationale": "The hook highlights the relatable weather shift to grab attention, while the body explains the seasonal dryness using allowed category facts. The call to action invites saves and DMs to drive engagement, strictly following the brand rules on ingredient listings and avoiding unsupported claims."
+  },
+  "review": {
+    "issues": [
+      {
+        "type": "risky_claim",
+        "quote": "A simple oiling habit can help keep your scalp feeling comfortable.",
+        "problem": "This implies the oiling routine (and by extension the product) delivers a comfort/soothing effect, which is a soft result claim not backed by the approved product claims.",
+        "fix": "Rewrite as a neutral habit statement without an effect, e.g. 'A simple oiling habit can be a nice part of your winter routine.'"
+      },
+      {
+        "type": "risky_claim",
+        "quote": "Just a gentle massage before your shower to make oiling feel like a small ritual.",
+        "problem": "Framing the massage as something that makes oiling 'feel like a ritual' is fine, but combined with the preceding comfort claim it reads as an implied benefit; keep it purely experiential and don't attach any effect to the product.",
+        "fix": "Keep it experiential only, e.g. 'A gentle massage before your shower can make oiling feel like a small ritual.'"
+      }
+    ],
+    "verdict": "revise"
+  }
+}

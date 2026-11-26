@@ -72,5 +72,6 @@ agents:
   reviewer: deepseek-v4.1-flash   # different model family from the writer (independent check)
   judge: deepseek-v4.1-flash      # evals only; cheap, and not the writer's model
   chat: deepseek-v4.1-flash       # chat assistant: decides actions; fast and reliable
+  feedback_check: deepseek-v4.1-flash  # did a revision do what was asked? (not the writer's model)
   # strategy: sarvam-105b
   # content:  sarvam-105b

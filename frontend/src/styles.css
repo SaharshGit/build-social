@@ -315,3 +315,12 @@ blockquote.example { margin: 0 0 0.5rem; font-style: italic; }
 }
 .suggestion:hover { border-color: var(--muted); background: color-mix(in srgb, var(--select) 30%, var(--panel)); }
 .chat-new .composer-wrap { padding-bottom: 8vh; }
+
+/* "Your requests" after a revision */
+.feedback-checks { border: 2px solid var(--line); border-radius: 12px; padding: 0.6rem 0.9rem; background: var(--panel); margin: 0.6rem 0; }
+.feedback-checks.compact { border: none; padding: 0; background: transparent; margin: 0.4rem 0 0; font-size: 0.9rem; }
+.feedback-checks-title { font-weight: 700; color: var(--text); margin-bottom: 0.25rem; }
+.feedback-checks ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.2rem; }
+.feedback-checks li { display: flex; gap: 0.5rem; }
+.feedback-checks .mark { font-weight: 700; width: 1rem; flex-shrink: 0; }
+.feedback-checks li.missed .mark { color: var(--bad); }

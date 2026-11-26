@@ -3,6 +3,7 @@ import type { Post } from '../api/client'
 import { useBrandNames, usePost } from '../api/hooks'
 import { ErrorBox, Loading, StatusBadge } from '../components/common'
 import Highlighted from '../components/Highlighted'
+import FeedbackChecks, { latestChecks, type Note } from '../components/FeedbackChecks'
 import PostActions from '../components/PostActions'
 import { PLATFORM_LABELS, timeAgo } from '../lib/format'
 
@@ -11,7 +12,6 @@ type Source = { id: number; title?: string | null; url: string }
 type Fact = { fact: string; scope?: string; sources?: Source[] }
 type DraftLike = { hook: string; body: string; call_to_action: string; hashtags: string[] }
 type HistoryEntry = { draft: DraftLike; feedback?: string }
-type Note = { kind: string; text: string; at?: string }
 
 const ISSUE_LABELS: Record<string, string> = {
   invented_fact: 'Invented fact',
@@ -45,6 +45,10 @@ export default function PostDetail() {
       </div>
       <p className="muted">Topic: {p.topic}</p>
       <PostActions post={p} />
+      {(() => {
+        const last = latestChecks(p.feedback)
+        return last && <FeedbackChecks checks={last.checks} />
+      })()}
 
       <div className="detail-grid">
         <div>
@@ -98,7 +102,10 @@ export default function PostDetail() {
           <h2>Notes</h2>
           <ul className="small">
             {(p.feedback as Note[]).map((n, i) => (
-              <li key={i}><strong>{n.kind}</strong>: {n.text} <span className="muted">{timeAgo(n.at)}</span></li>
+              <li key={i}>
+                <strong>{n.kind}</strong>: {n.text} <span className="muted">{timeAgo(n.at)}</span>
+                {n.checks && n.checks.length > 0 && <FeedbackChecks checks={n.checks} compact />}
+              </li>
             ))}
           </ul>
         </>
