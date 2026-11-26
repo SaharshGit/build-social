@@ -2,6 +2,7 @@ import { Link, useParams, useSearchParams } from 'react-router'
 import type { Brand } from '../api/client'
 import { useAssets, useBrand } from '../api/hooks'
 import LookAndFeel from '../components/brand/LookAndFeel'
+import Photos from '../components/brand/Photos'
 import { ErrorBox, Loading } from '../components/common'
 
 const TABS = [['overview', 'Overview'], ['look', 'Look & feel'], ['photos', 'Photos']] as const
@@ -42,7 +43,7 @@ export default function BrandDetail() {
       </div>
 
       {tab === 'look' && <LookAndFeel key={brand.data.updated_at} brand={brand.data} />}
-      {tab === 'photos' && <p className="muted">The photo library and style board come in the next step.</p>}
+      {tab === 'photos' && <Photos brand={brand.data} />}
       {tab === 'overview' && <Overview brand={brand.data} />}
     </section>
   )

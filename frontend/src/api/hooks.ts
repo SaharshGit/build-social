@@ -274,3 +274,15 @@ export function useReadStyle(brandId: string) {
     onSuccess: (style) => queryClient.setQueryData(['style', brandId], style),
   })
 }
+
+/** Read one photo again with the image-reading model (about INR 0.09). */
+export function useReadAsset(brandId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (assetId: string) => api<Asset>(`/assets/${assetId}/read`, { method: 'POST' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assets', brandId] })
+      queryClient.invalidateQueries({ queryKey: ['style', brandId] })
+    },
+  })
+}
