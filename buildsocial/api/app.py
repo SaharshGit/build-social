@@ -7,7 +7,7 @@ separate worker process (`buildsocial worker`), so every request returns quickly
 
 from fastapi import FastAPI
 
-from buildsocial.api.routes import brands, conversations, health, posts, runs
+from buildsocial.api.routes import assets, brands, conversations, health, posts, runs
 
 
 def create_app() -> FastAPI:
@@ -19,6 +19,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(health.router)
     app.include_router(brands.router)
+    app.include_router(assets.router)
     app.include_router(runs.router)
     app.include_router(posts.router)
     app.include_router(conversations.router)

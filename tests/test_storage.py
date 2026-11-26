@@ -16,8 +16,14 @@ class FakeBlob:
             raise NotFound(self.name)
         return self.bucket.data[self.name]
 
+    def download_as_bytes(self):
+        if self.name not in self.bucket.data:
+            raise NotFound(self.name)
+        return self.bucket.data[self.name]
+
     def upload_from_string(self, text, content_type=None):
         self.bucket.data[self.name] = text
+        self.bucket.types[self.name] = content_type
 
     def exists(self):
         return self.name in self.bucket.data
@@ -30,6 +36,7 @@ class FakeBlob:
 
 class FakeBucket:
     def __init__(self, client):
+        self.types = {}
         self.client, self.data = client, {}
 
     def blob(self, name):
@@ -64,6 +71,21 @@ def test_write_read_exists_delete(store):
     store.delete("traces/a.jsonl")
     assert not store.exists("traces/a.jsonl")
     store.delete("traces/a.jsonl")  # deleting twice is fine
+
+
+def test_bytes_round_trip(store):
+    data = bytes(range(256))  # not valid UTF-8: must come back unchanged
+    store.write_bytes("brands/b/assets/a.png", data, "image/png")
+    assert store.read_bytes("brands/b/assets/a.png") == data
+    assert store.list("brands/") == ["brands/b/assets/a.png"]
+    with pytest.raises(FileNotFoundError):
+        store.read_bytes("brands/b/assets/missing.png")
+
+
+def test_gcs_stores_the_content_type():
+    client = FakeGCSClient()
+    GCSStorage("buildsocial", client=client).write_bytes("brands/b/assets/a.jpg", b"x", "image/jpeg")
+    assert client.b.types["brands/b/assets/a.jpg"] == "image/jpeg"
 
 
 def test_missing_key_raises_file_not_found(store):

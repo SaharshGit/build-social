@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from buildsocial.db.models import Brand, Conversation, Message, Post, Run
+from buildsocial.db.models import Asset, AssetKind, Brand, Conversation, Message, Post, Run
 from buildsocial.schemas import BrandProfile, ContentPlan, PostDraft, Review
 
 
@@ -178,3 +178,37 @@ class ChatTurnOut(BaseModel):
 
     user: MessageOut
     assistant: MessageOut
+
+
+class AssetOut(BaseModel):
+    """An uploaded image. `url` serves the file through the API (the bucket itself stays private)."""
+
+    id: uuid.UUID
+    brand_id: uuid.UUID
+    kind: AssetKind
+    url: str
+    content_type: str
+    size_bytes: int
+    width: int | None
+    height: int | None
+    original_name: str | None
+    product: str | None
+    description: str | None
+    in_library: bool
+    created_at: datetime
+
+    @classmethod
+    def from_row(cls, a: Asset) -> "AssetOut":
+        return cls(id=a.id, brand_id=a.brand_id, kind=AssetKind(a.kind), url=f"/assets/{a.id}/file",
+                   content_type=a.content_type, size_bytes=a.size_bytes, width=a.width, height=a.height,
+                   original_name=a.original_name, product=a.product, description=a.description,
+                   in_library=a.in_library, created_at=a.created_at)
+
+
+class AssetUpdate(BaseModel):
+    """Change what an image is. Only the fields sent are changed; send product: null to unlink it."""
+
+    kind: AssetKind | None = None
+    product: str | None = None
+    description: str | None = Field(default=None, max_length=2000)
+    in_library: bool | None = None

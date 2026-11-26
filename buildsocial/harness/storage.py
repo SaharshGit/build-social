@@ -1,4 +1,4 @@
-"""Storage for runtime data (traces, research cache, saved posts, eval results).
+"""Storage for runtime data (traces, research cache, saved posts, eval results, uploaded images).
 
 Every read and write of runtime data goes through a Storage, so where it lives is one
 setting, not a code change (same adapter pattern as the LLM layer):
@@ -32,6 +32,13 @@ class Storage(ABC):
 
     @abstractmethod
     def write_text(self, key: str, text: str) -> None: ...
+
+    @abstractmethod
+    def read_bytes(self, key: str) -> bytes:
+        """Raises FileNotFoundError if the key doesn't exist."""
+
+    @abstractmethod
+    def write_bytes(self, key: str, data: bytes, content_type: str) -> None: ...
 
     @abstractmethod
     def exists(self, key: str) -> bool: ...
@@ -75,6 +82,14 @@ class LocalStorage(Storage):
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(text, encoding="utf-8")
 
+    def read_bytes(self, key: str) -> bytes:
+        return self.path(key).read_bytes()
+
+    def write_bytes(self, key: str, data: bytes, content_type: str) -> None:
+        p = self.path(key)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(data)
+
     def exists(self, key: str) -> bool:
         return self.path(key).is_file()
 
@@ -95,15 +110,21 @@ class LocalStorage(Storage):
 
 class MemoryStorage(Storage):
     def __init__(self) -> None:
-        self.files: dict[str, str] = {}
+        self.files: dict[str, bytes] = {}
 
     def read_text(self, key: str) -> str:
+        return self.read_bytes(key).decode("utf-8")
+
+    def write_text(self, key: str, text: str) -> None:
+        self.files[_check_key(key)] = text.encode("utf-8")
+
+    def read_bytes(self, key: str) -> bytes:
         if key not in self.files:
             raise FileNotFoundError(key)
         return self.files[key]
 
-    def write_text(self, key: str, text: str) -> None:
-        self.files[_check_key(key)] = text
+    def write_bytes(self, key: str, data: bytes, content_type: str) -> None:
+        self.files[_check_key(key)] = data
 
     def exists(self, key: str) -> bool:
         return key in self.files
@@ -146,6 +167,17 @@ class GCSStorage(Storage):
 
     def write_text(self, key: str, text: str) -> None:
         self._bucket.blob(_check_key(key)).upload_from_string(text, content_type="application/json; charset=utf-8")
+
+    def read_bytes(self, key: str) -> bytes:
+        from google.api_core.exceptions import NotFound
+
+        try:
+            return self._bucket.blob(_check_key(key)).download_as_bytes()
+        except NotFound as e:
+            raise FileNotFoundError(f"gs://{self.bucket_name}/{key}") from e
+
+    def write_bytes(self, key: str, data: bytes, content_type: str) -> None:
+        self._bucket.blob(_check_key(key)).upload_from_string(data, content_type=content_type)
 
     def exists(self, key: str) -> bool:
         return self._bucket.blob(_check_key(key)).exists()
