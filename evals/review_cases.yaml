@@ -1,0 +1,164 @@
+# Reviewer evals: hand-written posts where the right answer is known.
+#
+# clean: true  -> the post breaks no rule; ANY issue is a false alarm.
+# planted      -> problems written in on purpose; each must be flagged (an issue quoting it).
+#                 types: the issue types that count as correct for it.
+#                 judge: which judge list should catch it (invented / promised), or omit if the judge shouldn't.
+# Everything else in a planted post is written to be clean, so extra issues are counted as false alarms
+# (and printed, so a person can check whether the post really had a problem).
+#
+# Posts use the plan and approved facts of the matching start in evals/revision_starts (same research).
+# Run:  uv run buildsocial eval-reviewer --label baseline
+
+cases:
+  # ---------------------------------------------------------------- Brew House (Hinglish, Instagram)
+  - id: brew-clean
+    start: brewhouse-chai-instagram
+    clean: true
+    draft:
+      hook: "Cold chai weather, anyone?"
+      body: "Our new Masala Chai Cold Brew is here at the Indiranagar cafe: black tea, cardamom, cinnamon and ginger, cold-brewed and served over ice. No added artificial syrups, bas wahi classic masala kick. Bengaluru ka pleasant November weather is just right for it."
+      call_to_action: "Drop by this week and tell us what you think."
+      hashtags: ["#BrewHouse", "#MasalaChaiColdBrew", "#Bengaluru", "#Indiranagar"]
+
+  - id: brew-health-claim
+    start: brewhouse-chai-instagram
+    draft:
+      hook: "Cold chai weather, anyone?"
+      body: "Our new Masala Chai Cold Brew is here at the Indiranagar cafe: black tea, cardamom, cinnamon and ginger, cold-brewed and served over ice. Ginger and cardamom boost your immunity, so it's good for you too."
+      call_to_action: "Drop by this week and tell us what you think."
+      hashtags: ["#BrewHouse", "#MasalaChaiColdBrew", "#Bengaluru"]
+    planted:
+      - quote: "boost your immunity"
+        types: [brand_rule, risky_claim, invented_fact]
+        judge: promised
+
+  - id: brew-hinglish-promise
+    start: brewhouse-chai-instagram
+    draft:
+      hook: "Cold chai weather, anyone?"
+      body: "Our new Masala Chai Cold Brew is here at the Indiranagar cafe: black tea, cardamom, cinnamon and ginger, cold-brewed and served over ice. Ek sip mein aapki thakaan gayab ho jayegi."
+      call_to_action: "Drop by this week and tell us what you think."
+      hashtags: ["#BrewHouse", "#MasalaChaiColdBrew", "#Bengaluru"]
+    planted:
+      - quote: "aapki thakaan gayab ho jayegi"
+        types: [brand_rule, risky_claim]
+        judge: promised
+
+  - id: brew-competitor-discount
+    start: brewhouse-chai-instagram
+    draft:
+      hook: "Cold chai weather, anyone?"
+      body: "Our new Masala Chai Cold Brew is here at the Indiranagar cafe, way better than anything at Starbucks. FLAT 50% OFF THIS WEEK ONLY!"
+      call_to_action: "Drop by this week and tell us what you think."
+      hashtags: ["#BrewHouse", "#MasalaChaiColdBrew", "#Bengaluru"]
+    planted:
+      - quote: "better than anything at Starbucks"
+        types: [brand_rule]
+      - quote: "FLAT 50% OFF THIS WEEK ONLY"
+        types: [brand_rule, invented_fact]
+        judge: invented
+
+  - id: brew-second-cta
+    start: brewhouse-chai-instagram
+    draft:
+      hook: "Cold chai weather, anyone?"
+      body: "Our new Masala Chai Cold Brew is here at the Indiranagar cafe: black tea, cardamom, cinnamon and ginger, cold-brewed and served over ice. Order yours on Swiggy right now!"
+      call_to_action: "Drop by this week and tell us what you think."
+      hashtags: ["#BrewHouse", "#MasalaChaiColdBrew", "#Bengaluru"]
+    planted:
+      - quote: "Order yours on Swiggy right now"
+        types: [duplicate_cta, invented_fact]
+
+  # ---------------------------------------------------------------- Mamaearth (English + light Hinglish, Instagram)
+  - id: mama-clean
+    start: mamaearth-onion-instagram
+    clean: true
+    draft:
+      hook: "Winter air got your scalp feeling tight?"
+      body: "Cold air and very hot showers can leave your scalp feeling dry in winter. A slow oiling routine before your shower can be a comforting little ritual. Our Onion Hair Oil is made with onion oil and Redensyl, and it's toxin-free. Thoda sa oil, a gentle massage, and that's it."
+      call_to_action: "What's your winter hair ritual? Tell us below."
+      hashtags: ["#Mamaearth", "#OnionHairOil", "#WinterHairCare"]
+
+  - id: mama-hair-fall-timeline
+    start: mamaearth-onion-instagram
+    draft:
+      hook: "Winter air got your scalp feeling tight?"
+      body: "Cold air and very hot showers can leave your scalp feeling dry in winter. Our Onion Hair Oil is made with onion oil and Redensyl. Use it twice a week and it stops hair fall in just 2 weeks."
+      call_to_action: "What's your winter hair ritual? Tell us below."
+      hashtags: ["#Mamaearth", "#OnionHairOil", "#WinterHairCare"]
+    planted:
+      - quote: "stops hair fall in just 2 weeks"
+        types: [brand_rule, risky_claim]
+        judge: promised
+
+  - id: mama-chemical-free-certified
+    start: mamaearth-onion-instagram
+    draft:
+      hook: "Winter air got your scalp feeling tight?"
+      body: "Cold air and very hot showers can leave your scalp feeling dry in winter. Our Onion Hair Oil is 100% chemical-free and dermatologist certified."
+      call_to_action: "What's your winter hair ritual? Tell us below."
+      hashtags: ["#Mamaearth", "#OnionHairOil", "#WinterHairCare"]
+    planted:
+      - quote: "chemical-free"
+        types: [brand_rule, invented_fact]
+        judge: invented
+      - quote: "dermatologist certified"
+        types: [brand_rule, invented_fact]
+        judge: invented
+
+  - id: mama-borrowed-ingredients
+    start: mamaearth-onion-instagram
+    draft:
+      hook: "Winter air got your scalp feeling tight?"
+      body: "Cold air and very hot showers can leave your scalp feeling dry in winter. Our Onion Hair Oil is made with onion oil and Redensyl, plus argan oil and black seed oil for extra shine."
+      call_to_action: "What's your winter hair ritual? Tell us below."
+      hashtags: ["#Mamaearth", "#OnionHairOil", "#WinterHairCare"]
+    planted:
+      - quote: "plus argan oil and black seed oil for extra shine"
+        types: [invented_fact, risky_claim]
+        judge: invented
+
+  # ---------------------------------------------------------------- Zerodha (English, LinkedIn)
+  - id: zerodha-clean
+    start: zerodha-mf-linkedin
+    clean: true
+    draft:
+      hook: "Direct or regular: same fund, different cost."
+      body: "Many investors think direct and regular plans are different funds. They aren't. Both plans of a scheme share the same portfolio, the same fund manager and the same investment strategy. The difference is how you buy them. Regular plans include a distribution commission paid to an intermediary, which is why their expense ratio is higher. Direct plans are bought from the fund house or an online platform, without that commission."
+      call_to_action: "Which part of this was new to you?"
+      hashtags: ["#MutualFunds", "#InvestorEducation"]
+
+  - id: zerodha-coin-from-description
+    start: zerodha-mf-linkedin
+    clean: true
+    draft:
+      hook: "Direct or regular: same fund, different cost."
+      body: "Both plans of a scheme share the same portfolio, the same fund manager and the same investment strategy. Regular plans include a distribution commission paid to an intermediary, which is why their expense ratio is higher. Direct plans are bought without that commission. Coin is Zerodha's platform for direct mutual funds."
+      call_to_action: "Which part of this was new to you?"
+      hashtags: ["#MutualFunds", "#InvestorEducation"]
+
+  - id: zerodha-returns-fomo
+    start: zerodha-mf-linkedin
+    draft:
+      hook: "Direct or regular: same fund, different cost."
+      body: "Both plans of a scheme share the same portfolio and fund manager. Regular plans include a distribution commission, which is why their expense ratio is higher. Switch to direct and earn up to 1.5% more every year. Don't miss out!"
+      call_to_action: "Which part of this was new to you?"
+      hashtags: ["#MutualFunds", "#InvestorEducation"]
+    planted:
+      - quote: "Switch to direct and earn up to 1.5% more every year"
+        types: [brand_rule, risky_claim, invented_fact]
+        judge: promised
+      - quote: "Don't miss out!"
+        types: [brand_rule, duplicate_cta]
+
+  - id: zerodha-advice
+    start: zerodha-mf-linkedin
+    draft:
+      hook: "Direct or regular: same fund, different cost."
+      body: "Both plans of a scheme share the same portfolio and fund manager. Regular plans include a distribution commission, which is why their expense ratio is higher. If you invest through a distributor, you should move all your SIPs to direct plans today."
+      call_to_action: "Which part of this was new to you?"
+      hashtags: ["#MutualFunds", "#InvestorEducation"]
+    planted:
+      - quote: "you should move all your SIPs to direct plans today"
+        types: [brand_rule, risky_claim, duplicate_cta]

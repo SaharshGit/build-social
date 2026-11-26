@@ -727,6 +727,11 @@ export interface components {
              */
             issues: components["schemas"]["ReviewIssue"][];
             /**
+             * Suggestions
+             * @description Optional improvements that are NOT rule breaks (style, a stronger hook, a closer fit to the plan). They don't block the post and don't count as issues.
+             */
+            suggestions?: string[];
+            /**
              * Verdict
              * @description 'pass' if there are no issues, otherwise 'revise'
              * @enum {string}

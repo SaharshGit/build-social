@@ -110,4 +110,12 @@
   (measurable requests 5/7 -> 7/7). Remaining failures: tone requests vary run to run ("friendlier"), and the
   judge flags writer claims ("aapko zaroor pasand aayega", Coin wording): that's Q3 (reviewer/judge strictness,
   promised results). Spend today ~INR 2.1 (all DeepSeek/Sarvam, no Gemini).
+- Q3 done (branch sg/reviewer): reviewer evals on hand-labelled posts (`buildsocial eval-reviewer`,
+  evals/review_cases.yaml: 4 clean + 9 with 12 planted problems; also scores the eval judge).
+  Fixed-data baseline: caught 12/12, false alarms 7, clean posts flagged 2/4 -> final: 12/12, 2, 0/4.
+  Changes: off_plan only for losing the topic/product or contradicting the key message (CTA wording / angle
+  nitpicks -> new non-blocking Review.suggestions, shown greyed on the post page); one shared PRODUCTS_HEADING for
+  writer/strategist/reviewer/judge ("what a product IS may come from the description"; fixes the Coin false alarm).
+  Generation eval vs 2026-11-18: 6/6 pass, open review issues 13 -> 4, invented/promised still 0, voice 4.0 -> 4.17,
+  usefulness 3.83 -> 3.5 (within noise ~0.3). Judge still misses "FLAT 50% OFF" (1/8). Spend Q1-Q3: INR 4.54.
 
