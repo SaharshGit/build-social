@@ -801,6 +801,10 @@ export interface components {
             error: string | null;
             /** Post Id */
             post_id: string | null;
+            /** Trigger */
+            trigger: string | null;
+            /** Conversation Id */
+            conversation_id: string | null;
             /**
              * Created At
              * Format: date-time

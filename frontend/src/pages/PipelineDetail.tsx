@@ -1,11 +1,11 @@
 // One build, like opening a CI job: each step with what it used (model, time, cost) and what's left.
 import { useEffect, useRef } from 'react'
 import { Link, useParams } from 'react-router'
-import { useBrandNames, useRefreshAfterRun, useRun } from '../api/hooks'
+import { useBrandNames, useConversations, useRefreshAfterRun, useRun } from '../api/hooks'
 import { ErrorBox, Loading } from '../components/common'
 import { formatCost } from '../components/RunProgress'
 import { PLATFORM_LABELS, timeAgo } from '../lib/format'
-import { stepCost, stepSeconds, stepsFor, type StepView } from '../lib/steps'
+import { stepCost, stepSeconds, stepsFor, triggerText, type StepView } from '../lib/steps'
 
 const STATUS_LABEL: Record<string, string> = { queued: 'Queued', running: 'Running', done: 'Done', failed: 'Failed' }
 
@@ -13,6 +13,7 @@ export default function PipelineDetail() {
   const { runId = '' } = useParams()
   const run = useRun(runId)
   const brandNames = useBrandNames()
+  const chats = useConversations()
   const refresh = useRefreshAfterRun()
   const refreshed = useRef(false)
 
@@ -59,11 +60,21 @@ export default function PipelineDetail() {
           <dl>
             <dt>Status</dt>
             <dd>{STATUS_LABEL[r.status]}{r.status === 'running' ? `, step ${done + 1} of ${steps.length}` : ''}</dd>
+            {r.trigger && (
+              <>
+                <dt>Started</dt>
+                <dd>
+                  {r.trigger === 'chat' && r.conversation_id
+                    ? <Link to={`/chat/${r.conversation_id}`}>{triggerText(r, Object.fromEntries((chats.data ?? []).map((c) => [c.id, c.title])))}</Link>
+                    : triggerText(r, {})}
+                </dd>
+              </>
+            )}
             <dt>Brief</dt>
             <dd>{topic} · {String(r.brief.goal ?? 'engagement')}</dd>
             <dt>Cost</dt>
             <dd>{formatCost(r.cost)}{r.status === 'running' ? ' so far' : ''}</dd>
-            <dt>Started</dt>
+            <dt>When</dt>
             <dd>{new Date(r.started_at ?? r.created_at).toLocaleString()}</dd>
           </dl>
           {r.error && <div className="error-box small" style={{ marginBottom: '1rem' }}>{r.error}</div>}

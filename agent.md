@@ -91,4 +91,8 @@
   Pipelines page (CI-style step chains, lib/steps.ts) + pipeline detail, built on GET /runs (no backend change).
   Scheduled page explains the coming feature (no fake data). Review queue -> /reviews. Next: P backend (run trigger,
   planned steps), then quality Q1-Q2, then schedules S1-S3.
+- P done (branch sg/pipelines): runs.trigger (chat / form / schedule; NULL for older runs) + runs.conversation_id
+  (FK, ON DELETE SET NULL), migration 379e721dc043. Chat sets chat + conversation; New post form and Revise
+  button set form. RunOut exposes both; Pipelines shows "New post from chat “title”" etc., detail links to the chat.
+  Next: quality Q1-Q2, then schedules S1-S3.
 

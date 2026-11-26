@@ -10,7 +10,7 @@ from buildsocial.api.deps import current_org, get_db
 from buildsocial.api.schemas import DecisionIn, PostOut, PostSummary, ReviseIn, RunOut
 from buildsocial.db import posts as post_ops
 from buildsocial.db import runs as run_ops
-from buildsocial.db.models import Brand, Organization, Post, PostStatus, Run, RunKind
+from buildsocial.db.models import Brand, Organization, Post, PostStatus, Run, RunKind, RunTrigger
 from buildsocial.schemas import PostBrief
 
 router = APIRouter(prefix="/posts", tags=["posts"])
@@ -73,5 +73,5 @@ async def revise(post_id: uuid.UUID, body: ReviseIn,
     brand = await db.get(Brand, post.brand_id)
     original = await db.get(Run, post.run_id)
     run = await run_ops.create_run(db, brand, PostBrief.model_validate(original.brief), kind=RunKind.REVISION,
-                                   feedback=body.feedback, revises_post_id=post.id)
+                                   feedback=body.feedback, revises_post_id=post.id, trigger=RunTrigger.FORM)
     return RunOut.from_row(run)
