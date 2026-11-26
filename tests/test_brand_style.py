@@ -44,9 +44,10 @@ def models(client, store):  # noqa: F811
     return llm
 
 
-async def add_references(client, models, brand_id, n, issues=()):
+async def add_references(client, models, brand_id, n, first: dict | None = None):
+    """Upload n references; `first` changes the first one's photo reading (e.g. other_brands)."""
     for i in range(n):
-        models.replies.append(json.dumps(READING | {"issues": list(issues) if i == 0 else []}))
+        models.replies.append(json.dumps(READING | (first or {} if i == 0 else {})))
         r = await upload(client, brand_id, image_bytes(size=(1600, 1200)), name=f"ref{i}.jpg", kind="reference")
         assert r.status_code == 201
 
@@ -108,13 +109,39 @@ async def test_read_style_from_references(client, store, models):  # noqa: F811
     assert (await client.get(f"/brands/{brand_id}/style")).json()["stale"] is True
 
 
-async def test_needs_three_usable_references_and_skips_flagged_ones(client, store, models):  # noqa: F811
+async def test_needs_three_usable_references_and_skips_other_brands(client, store, models):  # noqa: F811
     brand_id = await create_brand(client)
-    await add_references(client, models, brand_id, 3, issues=["another brand's logo"])
+    await add_references(client, models, brand_id, 3, first={"other_brands": ["Starbucks"]})
     r = await client.post(f"/brands/{brand_id}/style/read")
     assert r.status_code == 422 and "have 2 usable" in r.json()["detail"]
     s = (await client.get(f"/brands/{brand_id}/style")).json()
-    assert s["references_usable"] == 2 and "another brand's logo" in s["references_excluded"][0]["reason"]
+    assert s["references_usable"] == 2 and s["references_excluded"][0]["reason"] == "shows another brand: Starbucks"
+
+
+async def test_the_brands_own_logo_is_fine(client, store, models):  # noqa: F811
+    brand_id = await create_brand(client)
+    await add_references(client, models, brand_id, 3, first={"issues": ["Brew House logo in the corner"],
+                                                             "visible_text": ["Brew House"]})
+    assert (await client.get(f"/brands/{brand_id}/style")).json()["references_usable"] == 3
+
+
+async def test_unchecked_references_arent_trusted(client, store, models):  # noqa: F811
+    from buildsocial.harness.llm.base import LLMError
+    brand_id = await create_brand(client)
+    await add_references(client, models, brand_id, 3)
+    models.replies.append(LLMError("model down"))  # this one's reading fails
+    await upload(client, brand_id, image_bytes(), kind="reference")
+    s = (await client.get(f"/brands/{brand_id}/style")).json()
+    assert s["references_usable"] == 3 and "not checked yet" in s["references_excluded"][0]["reason"]
+
+
+async def test_a_missing_file_is_skipped(client, store, models):  # noqa: F811
+    brand_id = await create_brand(client)
+    await add_references(client, models, brand_id, 4)
+    store.files.pop(next(iter(store.files)))  # one file vanished from storage
+    models.replies.append(style_json(3))
+    s = (await client.post(f"/brands/{brand_id}/style/read")).json()
+    assert len(s["asset_ids"]) == 3 and s["excluded"][0]["reason"] == "the image file is missing"
 
 
 async def test_a_persons_edit_is_protected(client, store, models):  # noqa: F811

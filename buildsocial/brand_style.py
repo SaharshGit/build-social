@@ -39,10 +39,14 @@ class StyleEdited(Exception):
 
 
 def _flag(asset: Asset) -> str | None:
-    """Why a reference shouldn't shape the brand's style, from the photo reader's issues."""
-    issues = (asset.analysis or {}).get("issues") or []
-    logo = next((i for i in issues if "logo" in i.lower()), None)
-    return f"photo reader flagged: {logo}" if logo else None
+    """Why a reference shouldn't shape the brand's style. A photo that was never checked isn't trusted:
+    it could show a competitor's look."""
+    analysis = asset.analysis or {}
+    if "other_brands" not in analysis:  # reading failed, never ran, or predates the check
+        return f"not checked yet: read it again (POST /assets/{asset.id}/read)"
+    if analysis["other_brands"]:
+        return "shows another brand: " + ", ".join(analysis["other_brands"])
+    return None
 
 
 async def references(db: AsyncSession, org: Organization, brand: Brand) -> tuple[list[Asset], list[dict]]:
@@ -69,10 +73,17 @@ async def read_style(db: AsyncSession, store: Storage, org: Organization, brand:
 
     profile = BrandProfile.model_validate(brand.profile)
     kit = [c.hex for c in profile.design.colors] if profile.design else []
-    images = []
+    images, used = [], []
     for a in usable:  # one at a time: never several full-size images in memory
-        data, mime = for_model(store.read_bytes(a.key), max_side=1024)
+        try:
+            data, mime = for_model(store.read_bytes(a.key), max_side=1024)
+        except FileNotFoundError:
+            excluded.append({"id": str(a.id), "reason": "the image file is missing"})
+            continue
         images.append(ImageInput(mime_type=mime, data=data, resolution="medium"))
+        used.append(a)
+    if len(used) < MIN_REFERENCES:
+        raise NotEnoughReferences(f"need at least {MIN_REFERENCES} reference images, {len(used)} could be read")
 
     tracer = deps.tracer_for(f"style_{str(brand.id)[:8]}")
     run = StepRunner(tracer, deps.client_for, deps.pricing_for)
@@ -84,7 +95,7 @@ async def read_style(db: AsyncSession, store: Storage, org: Organization, brand:
     step = run.steps[0]
     brand.style = {
         "reading": reading.model_dump(mode="json"),
-        "asset_ids": [str(a.id) for a in usable],
+        "asset_ids": [str(a.id) for a in used],
         "excluded": excluded,
         "kit_mismatch": kit_mismatch(reading.palette, kit),
         "edited": False,

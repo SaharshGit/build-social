@@ -23,6 +23,7 @@ READING = {
     "background": "scene",
     "lighting": "soft warm daylight from the left",
     "text_space": ["top", "right"],
+    "other_brands": [],
     "issues": [],
     "suggested_kind": "product",
     "suggested_product": "Masala Chai Cold Brew",

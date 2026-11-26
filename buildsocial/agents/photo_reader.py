@@ -27,6 +27,8 @@ class PhotoReading(BaseModel):
     subjects: list[str] = Field(description="The main things visible, e.g. 'glass of iced tea', 'wooden table'")
     visible_text: list[str] = Field(description="Any words visible in the photo (labels, signs), copied exactly; "
                                                 "empty if none")
+    other_brands: list[str] = Field(description="Names or logos of brands OTHER than this brand visible in the "
+                                                "photo; empty if none (this brand's own logo doesn't count)")
     colors: list[Hex] = Field(description="2 to 5 dominant colours as '#rrggbb', most dominant first")
     background: Literal["plain", "scene", "transparent"] = Field(
         description="plain: studio or flat background; scene: a real setting; transparent: no background")
@@ -34,7 +36,7 @@ class PhotoReading(BaseModel):
     text_space: list[Area] = Field(description="Areas calm and empty enough to place text without covering the "
                                                "main subject; empty if none")
     issues: list[str] = Field(description="Problems for using it in a post: blurry, too dark, low resolution, "
-                                          "watermark, another brand's logo, people's faces; empty if none")
+                                          "watermark, people's faces; empty if none")
     suggested_kind: Literal["product", "lifestyle", "place", "logo", "other"]
     suggested_product: str | None = Field(
         description="The brand product shown, copied exactly from the list; null if none or unsure")
