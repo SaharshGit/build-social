@@ -7,7 +7,7 @@ to agents: they only ever see these objects.
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 Platform = Literal["instagram", "linkedin"]
 Goal = Literal["engagement", "awareness", "sales", "community"]
@@ -39,6 +39,72 @@ PRODUCTS_HEADING = ("# Products (the ONLY allowed claims about what the brand's 
                     "what a product IS may also come from the brand description)")
 
 
+# ----------------------------------------------------------------------
+# Brand design kit: what makes the brand's visuals look like the brand
+# ----------------------------------------------------------------------
+
+ColorRole = Literal["background", "text", "accent", "secondary", "highlight"]
+
+# WCAG AA: normal-size text needs 4.5:1 against its background to be readable.
+MIN_TEXT_CONTRAST = 4.5
+
+
+class BrandColor(BaseModel):
+    name: str = Field(description="e.g. 'Espresso'")
+    hex: str = Field(pattern=r"^#[0-9a-fA-F]{6}$", description="e.g. '#2E1D14'")
+    role: ColorRole
+
+
+class BrandFont(BaseModel):
+    family: str = Field(description="A Google Fonts family name, e.g. 'Fraunces'")
+    weights: list[int] = Field(default_factory=lambda: [400, 700])
+
+
+class BrandFonts(BaseModel):
+    heading: BrandFont
+    body: BrandFont
+
+
+class BrandDesign(BaseModel):
+    """The brand's visual identity. Used by the design step; agents that write words never need it."""
+
+    colors: list[BrandColor]
+    fonts: BrandFonts
+    logo_asset_id: str | None = Field(default=None, description="The uploaded logo (an asset of this brand)")
+    art_direction: str = Field(default="", description="How photos and images should look: light, textures, mood")
+    visual_dos: list[str] = Field(default_factory=list)
+    visual_donts: list[str] = Field(default_factory=list)
+
+    def color(self, role: ColorRole) -> BrandColor | None:
+        return next((c for c in self.colors if c.role == role), None)
+
+    @model_validator(mode="after")
+    def _readable(self) -> "BrandDesign":
+        bg, text = self.color("background"), self.color("text")
+        if bg is None or text is None:
+            raise ValueError("colors need at least one 'background' and one 'text' colour")
+        ratio = contrast_ratio(text.hex, bg.hex)
+        if ratio < MIN_TEXT_CONTRAST:
+            raise ValueError(f"text colour {text.hex} on background {bg.hex} has contrast {ratio:.1f}:1; "
+                             f"needs at least {MIN_TEXT_CONTRAST}:1 to be readable")
+        return self
+
+
+def _luminance(hex_color: str) -> float:
+    """Relative luminance (WCAG 2): how bright a colour looks, 0 (black) to 1 (white)."""
+    def channel(v: int) -> float:
+        c = v / 255
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+
+
+def contrast_ratio(a: str, b: str) -> float:
+    """WCAG contrast between two '#rrggbb' colours: 1 (same) to 21 (black on white)."""
+    hi, lo = sorted((_luminance(a), _luminance(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
 class BrandProfile(BaseModel):
     """A brand's identity. Written once per brand, reused for every post."""
 
@@ -56,6 +122,7 @@ class BrandProfile(BaseModel):
     donts: list[str] = Field(default_factory=list)
     example_posts: list[str] = Field(default_factory=list, description="Past posts showing the brand's style")
     products: list[Product] = Field(default_factory=list)
+    design: BrandDesign | None = None  # visual identity; needed for posts with images
 
     def products_text(self) -> str:
         """The products section shown to agents: the only allowed facts about the brand's own products."""
@@ -79,6 +146,9 @@ class PostBrief(BaseModel):
     format: Format = "text"
     goal: Goal = "engagement"
     notes: str | None = None
+    # Photos the person attached for this post ("build a post around this"): asset ids of the brand.
+    # The design step must use them as the main image.
+    photo_ids: list[str] = Field(default_factory=list)
 
 
 class ImageText(BaseModel):

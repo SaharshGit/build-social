@@ -82,7 +82,8 @@ export default function BrandForm() {
         className="form brand-form"
         onSubmit={(e) => {
           e.preventDefault()
-          save.mutate({ brandId, profile: toProfile(f) }, { onSuccess: (b) => navigate(`/brands/${b.id}`) })
+          // Keep profile parts this form doesn't edit yet (e.g. the design kit), or saving would delete them.
+          save.mutate({ brandId, profile: { ...existing.data?.profile, ...toProfile(f) } }, { onSuccess: (b) => navigate(`/brands/${b.id}`) })
         }}
       >
         <h2>Basics</h2>

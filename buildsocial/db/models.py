@@ -6,6 +6,7 @@
     posts          the output and its lifecycle (pending -> approved / rejected; later scheduled, published)
     conversations  one chat thread with the BuildSocial assistant
     messages       what was said in a conversation, in order, with attachments (run / post cards)
+    assets         uploaded images (logo, product photos...): a row here, the file in the bucket
 
 Large, write-once data (traces, research cache, media) stays in the bucket, not here.
 Schema changes go through Alembic migrations (migrations/), never by editing tables by hand.
@@ -16,7 +17,7 @@ from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -87,6 +88,41 @@ class Brand(Timestamps, Base):
     profile: Mapped[dict[str, Any]]  # the full BrandProfile (voice, rules, products...), validated by Pydantic
 
     organization: Mapped[Organization] = relationship(back_populates="brands")
+
+
+class AssetKind(StrEnum):
+    LOGO = "logo"
+    PRODUCT = "product"      # the product itself (packshot, in use)
+    LIFESTYLE = "lifestyle"  # people, scenes, moods
+    PLACE = "place"          # the shop, cafe, office
+    OTHER = "other"
+
+
+class Asset(Timestamps, Base):
+    """An uploaded image. The file lives in the bucket at `key`; this row says what it is.
+
+    in_library: part of the brand's reusable library (found by product). False for a photo attached to
+    one post only, which can be saved to the library later.
+    """
+
+    __tablename__ = "assets"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=new_id)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    brand_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("brands.id", ondelete="CASCADE", name="fk_assets_brand_id"), index=True)
+    kind: Mapped[str] = mapped_column(String(20), default=AssetKind.OTHER)
+    key: Mapped[str] = mapped_column(String(500))  # storage key of the file
+    content_type: Mapped[str] = mapped_column(String(50))  # image/png, image/jpeg, image/webp
+    size_bytes: Mapped[int] = mapped_column(Integer)
+    width: Mapped[int | None] = mapped_column(Integer)
+    height: Mapped[int | None] = mapped_column(Integer)
+    original_name: Mapped[str | None] = mapped_column(String(255))
+    product: Mapped[str | None] = mapped_column(String(200))  # the brand product it shows, by name
+    # Written once by an image-reading model (what's in it, colours, where text fits); a person can edit it.
+    # Never a source of product claims.
+    description: Mapped[str | None] = mapped_column(Text)
+    in_library: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 class Run(Timestamps, Base):

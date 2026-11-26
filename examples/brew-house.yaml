@@ -36,3 +36,24 @@ products:
       - New on the menu
       - Masala chai, cold-brewed and served over ice
       - No added artificial syrups
+# Visual identity (fictional; proposed 2026-11-26). Fonts are Google Fonts, free for commercial use.
+design:
+  colors:
+    - {name: Oat cream, hex: "#F3EADB", role: background}
+    - {name: Espresso, hex: "#2E1D14", role: text}
+    - {name: Chai, hex: "#C9772F", role: accent}
+    - {name: Cardamom, hex: "#7C8C5A", role: secondary}
+    - {name: Brass, hex: "#D9A441", role: highlight}
+  fonts:
+    heading: {family: Fraunces, weights: [600, 800]}
+    body: {family: DM Sans, weights: [400, 600]}
+  art_direction: >
+    Natural warm daylight and real cafe textures: wood, ceramic, a steel davara-tumbler. Drinks in close-up,
+    with condensation on cold ones. Earthy tones. No stock-photo models, no neon, no text in photos.
+  visual_dos:
+    - Plenty of empty space around the text
+    - One hero photo per image
+    - Logo small, in a corner
+  visual_donts:
+    - No ALL CAPS
+    - No discount badges or starbursts
