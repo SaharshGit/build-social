@@ -19,6 +19,7 @@ Requirements: Python 3.12, [uv](https://docs.astral.sh/uv/), Docker (Docker Desk
 
 ```bash
 uv sync                      # install dependencies
+uv run playwright install --only-shell chromium   # headless browser that renders post images (~280 MB, once)
 cp .env.example .env         # then fill in the values (see below)
 docker compose up -d         # start Postgres (127.0.0.1:5432, data kept in a Docker volume)
 uv run alembic upgrade head  # create / update the database tables
