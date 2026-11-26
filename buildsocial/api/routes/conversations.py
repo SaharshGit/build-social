@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from buildsocial.api.deps import current_org, get_chat_deps, get_db
 from buildsocial.api.schemas import ChatTurnOut, ConversationIn, ConversationOut, ConversationSummary, MessageIn, MessageOut
 from buildsocial.chat import ChatDeps, handle_message
+from buildsocial.db import assets as asset_ops
 from buildsocial.db import conversations as conv_ops
 from buildsocial.db.models import Organization
 
@@ -84,5 +85,11 @@ async def send_message(conversation_id: uuid.UUID, body: MessageIn, db: AsyncSes
         raise HTTPException(status.HTTP_404_NOT_FOUND, "conversation not found")
     if not body.text.strip():
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "message is empty")
-    user_msg, assistant_msg = await handle_message(db, org, conv, body.text.strip(), deps)
+    photos = []
+    for photo_id in dict.fromkeys(body.photo_ids):  # keep order, drop repeats
+        asset = await asset_ops.get_asset(db, org, photo_id)
+        if asset is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, f"photo {photo_id} not found")
+        photos.append(asset)
+    user_msg, assistant_msg = await handle_message(db, org, conv, body.text.strip(), deps, photos)
     return ChatTurnOut(user=MessageOut.from_row(user_msg), assistant=MessageOut.from_row(assistant_msg))

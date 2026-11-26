@@ -83,6 +83,14 @@ class ChatListedPost(BaseModel):
     revision_in_progress: bool = False
 
 
+class ChatPhoto(BaseModel):
+    """A photo the user attached to their message (what the image-reading model saw)."""
+
+    brand: str
+    description: str | None = None
+    product: str | None = None
+
+
 class ChatInput(BaseModel):
     brands: list[ChatBrand]
     chat_brand: str | None  # the brand chosen for this chat
@@ -91,6 +99,7 @@ class ChatInput(BaseModel):
     listed_posts: list[ChatListedPost] = []  # the last list of posts shown, numbered from 1
     history: list[str]  # recent messages, oldest first: "user: ..." / "assistant: ..."
     message: str
+    photos: list[ChatPhoto] = []  # attached to the new message
 
 
 class ChatAgent(Agent[ChatInput, ChatDecision]):
@@ -135,6 +144,10 @@ class ChatAgent(Agent[ChatInput, ChatDecision]):
                         for i, p in enumerate(input.listed_posts, 1)], ""]
         lines += ["# Conversation so far", *(input.history or ["(this is the first message)"]), "",
                   "# The user's new message", input.message]
+        if input.photos:
+            lines += ["", "# Photos attached to this message (what they show; not facts about the product)",
+                      *[f"- {p.brand}: {p.description or '(not described yet)'}"
+                        f"{f' [product: {p.product}]' if p.product else ''}" for p in input.photos]]
         return "\n".join(lines)
 
     def check(self, output: ChatDecision, input: ChatInput) -> list[str]:

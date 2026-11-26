@@ -402,3 +402,16 @@ blockquote.example { margin: 0 0 0.5rem; font-style: italic; }
 .clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .photo-edit { display: flex; gap: 0.4rem; margin-top: 0.2rem; }
 .photo-edit select { flex: 1; min-width: 0; font-size: 0.75rem; padding: 0.2rem; border: 1px solid var(--soft-line); border-radius: 8px; background: var(--panel); color: var(--text); }
+
+/* Chat: attached photos */
+.plus-menu-file { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; padding: 0.45rem 0.6rem; border-radius: 10px; cursor: pointer; }
+.plus-menu-file:hover { background: color-mix(in srgb, var(--select) 55%, transparent); }
+.plus-menu-file.disabled { color: var(--muted); cursor: default; }
+.composer-photos { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
+.photo-chip { display: inline-flex; align-items: center; gap: 0.5rem; background: var(--panel); border: 1.5px solid var(--line); border-radius: 12px; padding: 0.3rem 0.3rem 0.3rem 0.35rem; }
+.photo-chip img { width: 36px; height: 36px; object-fit: cover; border-radius: 8px; }
+.photo-chip-text { display: flex; flex-direction: column; line-height: 1.2; }
+.photo-chip-name { font-size: 0.8rem; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.photo-note { display: flex; gap: 0.8rem; align-items: flex-start; max-width: 560px; }
+.photo-note img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+.photo-note p { margin: 0.15rem 0; }

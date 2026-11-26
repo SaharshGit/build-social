@@ -14,7 +14,8 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from buildsocial.agents.chat import (
-    ChatAgent, ChatBrand, ChatDecision, ChatInput, ChatListedPost, ChatPost, DataAnswerAgent, DataAnswerInput,
+    ChatAgent, ChatBrand, ChatDecision, ChatInput, ChatListedPost, ChatPhoto, ChatPost, DataAnswerAgent,
+    DataAnswerInput,
     resolve_brand,
 )
 from buildsocial.chat_data import run_query
@@ -23,7 +24,7 @@ from buildsocial.db import conversations as conv_ops
 from buildsocial.db import posts as post_ops
 from buildsocial.db import runs as run_ops
 from buildsocial.db.models import (
-    Brand, Conversation, Message, MessageRole, Organization, Post, PostStatus, Run, RunKind,
+    Asset, Brand, Conversation, Message, MessageRole, Organization, Post, PostStatus, Run, RunKind,
     RunStatus, RunTrigger,
 )
 from buildsocial.harness.agent import AgentError
@@ -46,11 +47,20 @@ class ChatDeps:
 
 
 async def handle_message(
-    db: AsyncSession, org: Organization, conv: Conversation, text: str, deps: ChatDeps
+    db: AsyncSession, org: Organization, conv: Conversation, text: str, deps: ChatDeps,
+    photos: list[Asset] | None = None,
 ) -> tuple[Message, Message]:
-    """Save the user's message, decide and act, save the assistant's reply. Returns (user, assistant)."""
+    """Save the user's message, decide and act, save the assistant's reply. Returns (user, assistant).
+
+    photos: images attached to this message (already checked to belong to the organization). A post
+    created from this message is built around them.
+    """
+    photos = photos or []
     history = await conv_ops.recent_messages(db, conv, HISTORY_MESSAGES)
-    user_msg = await conv_ops.add_message(db, conv, MessageRole.USER, text)
+    user_msg = await conv_ops.add_message(db, conv, MessageRole.USER, text,
+                                          [{"type": "photo", "id": str(a.id)} for a in photos])
+    if conv.brand_id is None and photos:  # a photo says which brand the chat is about
+        conv.brand_id = photos[0].brand_id
     if conv.title == "New chat":
         conv.title = short_title(text)
 
@@ -71,6 +81,8 @@ async def handle_message(
                       for p in listed],
         history=[_history_line(m) for m in history],
         message=text,
+        photos=[ChatPhoto(brand=next((b.name for b in brands if b.id == a.brand_id), "?"),
+                          description=a.description, product=a.product) for a in photos],
     )
 
     tracer = deps.tracer_for(conv.id)
@@ -84,7 +96,7 @@ async def handle_message(
             else:
                 if decision.post_number:  # "the second one": a post from the last list
                     post = listed[decision.post_number - 1]
-                reply, attachments = await _act(db, org, conv, brands, post, decision)
+                reply, attachments = await _act(db, org, conv, brands, post, decision, photos)
     except (AgentError, LLMError) as e:
         reply, attachments = (
             "Sorry, I couldn't process that just now. Could you try again, or rephrase it?",
@@ -99,7 +111,7 @@ async def handle_message(
 
 async def _act(
     db: AsyncSession, org: Organization, conv: Conversation, brands: list[Brand], post: Post | None,
-    d: ChatDecision,
+    d: ChatDecision, photos: list[Asset] | None = None,
 ) -> tuple[str, list[dict[str, Any]]]:
     """Carry out the decision with the same rules as the API. Returns (reply, attachments)."""
     if d.action == "create_post":
@@ -109,10 +121,15 @@ async def _act(
         if brand is None:  # check() should prevent this; stay safe anyway
             return "Which brand is this post for?", []
         conv.brand_id = brand.id  # naming another brand switches the chat to it
+        used = [a for a in photos or [] if a.brand_id == brand.id]
+        skipped = len(photos or []) - len(used)
         brief = PostBrief(topic=d.topic or "", platform=d.platform or "instagram", goal=d.goal or "engagement",
-                          format=d.format or "text", notes=d.notes)
+                          # a post built around a photo is an image post, whatever the model picked
+                          format="single_image" if used else d.format or "text", notes=d.notes,
+                          photo_ids=[str(a.id) for a in used])
         run = await run_ops.create_run(db, brand, brief, trigger=RunTrigger.CHAT, conversation_id=conv.id)
-        return d.reply, [{"type": "run", "id": str(run.id)}]
+        note = f" (I left out {skipped} photo{'s' if skipped > 1 else ''} from another brand.)" if skipped else ""
+        return d.reply + note, [{"type": "run", "id": str(run.id)}]
 
     if d.action in ("revise_post", "approve_post", "reject_post"):
         if post is None:
@@ -221,6 +238,7 @@ def short_title(text: str, limit: int = 50) -> str:
 
 
 def _history_line(m: Message) -> str:
-    cards = {"run": "[started a run]", "post": "[showed the post]", "data": "[showed data]", "error": "[error]"}
+    cards = {"run": "[started a run]", "post": "[showed the post]", "data": "[showed data]", "error": "[error]",
+             "photo": "[attached a photo]"}
     extra = " ".join(cards.get(a.get("type"), "") for a in m.attachments or [])
     return f"{m.role}: {m.content}{(' ' + extra) if extra.strip() else ''}"

@@ -5,11 +5,13 @@ isn't allowed. No API calls, no cost."""
 import json
 import uuid
 
+import yaml
+
 from buildsocial.chat import short_title
 from buildsocial.db.models import Run, RunKind, RunStatus
 from buildsocial.harness.llm.base import LLMError
 from buildsocial.worker import process_one
-from tests.test_api_runs import create_brand, happy_path, worker_deps
+from tests.test_api_runs import EXAMPLES, create_brand, happy_path, worker_deps
 
 
 def decision(action, reply="ok", **fields):
@@ -218,3 +220,63 @@ async def test_runs_record_what_started_them(client, chat, db_maker):
     # And the list shows both
     triggers = {r["id"]: r["trigger"] for r in (await client.get("/runs")).json()}
     assert triggers == {form_run["id"]: "form", run_id: "chat"}
+
+
+# --- photos attached to a message ---------------------------------------------------------
+
+from tests.test_api_assets import image_bytes, store, upload  # noqa: E402,F401 (store is a fixture)
+
+
+async def say_with_photos(client, conv_id, text, photo_ids):
+    r = await client.post(f"/conversations/{conv_id}/messages", json={"text": text, "photo_ids": photo_ids})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+async def test_a_post_is_built_around_an_attached_photo(client, chat, store):  # noqa: F811
+    brand_id = await create_brand(client)
+    photo = (await upload(client, brand_id, image_bytes(), in_library=False)).json()
+    conv = await new_chat(client)  # no brand chosen yet: the photo's brand is used
+    q = chat(decision("create_post", "On it", topic="cold brew", platform="instagram", format="text"))
+
+    turn = await say_with_photos(client, conv, "Make a post around this photo", [photo["id"]])
+    assert turn["user"]["attachments"] == [{"type": "photo", "id": photo["id"]}]
+    run = (await client.get(f"/runs/{turn['assistant']['attachments'][0]['id']}")).json()
+    assert run["brief"]["photo_ids"] == [photo["id"]]
+    assert run["brief"]["format"] == "single_image"  # a photo means an image post, whatever the model said
+    assert (await client.get(f"/conversations/{conv}")).json()["brand_id"] == brand_id
+    assert q == []  # one model call: the decision
+
+
+async def test_the_chat_agent_is_told_about_the_photo(client, chat, store):  # noqa: F811
+    from buildsocial.agents.chat import ChatAgent, ChatBrand, ChatInput, ChatPhoto
+    msg = ChatAgent().build_user_message(ChatInput(
+        brands=[ChatBrand(name="Brew House", industry="cafe", market="Bengaluru")], chat_brand="Brew House",
+        post=None, history=[], message="post this",
+        photos=[ChatPhoto(brand="Brew House", description="A glass of iced tea.", product="Masala Chai Cold Brew")]))
+    assert "# Photos attached to this message" in msg
+    assert "- Brew House: A glass of iced tea. [product: Masala Chai Cold Brew]" in msg
+
+
+async def test_photos_of_another_brand_are_left_out(client, chat, store):  # noqa: F811
+    brand_id = await create_brand(client)
+    profile = yaml.safe_load((EXAMPLES / "brew-house.yaml").read_text()) | {"name": "Other cafe"}
+    other_id = (await client.post("/brands", json=profile)).json()["id"]
+    mine = (await upload(client, brand_id, image_bytes(), in_library=False)).json()
+    theirs = (await upload(client, other_id, image_bytes(), in_library=False)).json()
+    conv = await new_chat(client, brand_id)
+    chat(decision("create_post", "On it.", topic="cold brew", platform="instagram"))
+
+    turn = await say_with_photos(client, conv, "Post these", [mine["id"], theirs["id"]])
+    assert turn["assistant"]["content"] == "On it. (I left out 1 photo from another brand.)"
+    run = (await client.get(f"/runs/{turn['assistant']['attachments'][0]['id']}")).json()
+    assert run["brief"]["photo_ids"] == [mine["id"]]
+
+
+async def test_unknown_photos_and_too_many_are_rejected(client, chat, store):  # noqa: F811
+    conv = await new_chat(client)
+    r = await client.post(f"/conversations/{conv}/messages", json={"text": "hi", "photo_ids": [str(uuid.uuid4())]})
+    assert r.status_code == 404 and "photo" in r.json()["detail"]
+    r = await client.post(f"/conversations/{conv}/messages",
+                          json={"text": "hi", "photo_ids": [str(uuid.uuid4()) for _ in range(5)]})
+    assert r.status_code == 422

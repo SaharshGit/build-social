@@ -171,8 +171,8 @@ export function useUpdateConversation(conversationId: string) {
 export function useSendMessage() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ conversationId, text }: { conversationId: string; text: string }) =>
-      api<ChatTurn>(`/conversations/${conversationId}/messages`, { method: 'POST', body: { text } }),
+    mutationFn: ({ conversationId, text, photoIds = [] }: { conversationId: string; text: string; photoIds?: string[] }) =>
+      api<ChatTurn>(`/conversations/${conversationId}/messages`, { method: 'POST', body: { text, photo_ids: photoIds } }),
     onSuccess: (turn, { conversationId }) => {
       // Show both messages right away, before the refetch below comes back.
       queryClient.setQueryData<Conversation>(['conversation', conversationId], (old) =>
@@ -285,4 +285,8 @@ export function useReadAsset(brandId: string) {
       queryClient.invalidateQueries({ queryKey: ['style', brandId] })
     },
   })
+}
+
+export function useAsset(assetId: string) {
+  return useQuery({ queryKey: ['asset', assetId], queryFn: () => api<Asset>(`/assets/${assetId}`), enabled: !!assetId })
 }

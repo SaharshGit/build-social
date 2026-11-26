@@ -171,6 +171,9 @@ class ConversationIn(BaseModel):
 
 class MessageIn(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
+    # Images attached to this message (asset ids, e.g. uploaded "for one post"). A post created from it
+    # is built around them.
+    photo_ids: list[uuid.UUID] = Field(default_factory=list, max_length=4)
 
 
 class ChatTurnOut(BaseModel):
