@@ -35,6 +35,7 @@ FIT_HEADLINE = """([minPx, maxPx, maxLines, step]) => {
 @dataclass
 class Rendered:
     png: bytes
+    background_png: bytes  # the same page with the text and logo hidden: what is behind the words
     headline_px: float
     headline_lines: int
     overflow: bool  # the text didn't fit even at the smallest headline size
@@ -70,7 +71,10 @@ class Renderer:
             await page.evaluate("document.fonts.ready")
             m = await page.evaluate(FIT_HEADLINE, [TYPE.headline_px[0], TYPE.headline_px[1], TYPE.max_headline_lines, 4])
             png = await page.screenshot(type="png")
+            # Hide the words and logo (keeping their space) to see exactly what is behind them.
+            await page.add_style_tag(content="#headline, #subline, #logo { visibility: hidden !important; }")
+            background = await page.screenshot(type="png")
         finally:
             await page.close()
-        return Rendered(png=png, headline_px=m["headline_px"], headline_lines=m["headline_lines"],
+        return Rendered(png=png, background_png=background, headline_px=m["headline_px"], headline_lines=m["headline_lines"],
                         overflow=m["overflow"], boxes=m["boxes"], subline_px=m["subline_px"])

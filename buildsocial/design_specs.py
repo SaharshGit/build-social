@@ -85,10 +85,16 @@ TYPE = TypeSpec()
 @dataclass(frozen=True)
 class LogoSpec:
     width_share: tuple[float, float] = (0.08, 0.14)  # of the canvas width
+    wordmark_max_share: float = 0.24  # the brand name in text (no logo yet): can't shrink below min_text_px
     corners: tuple[str, ...] = ("top-left", "top-right", "bottom-left", "bottom-right")
 
 
 LOGO = LogoSpec()
+
+# Behind text, measured on the rendered pixels (the page with the words hidden):
+CONTRAST_PERCENTILE = 10  # judge contrast on the worst 10% of background pixels, not the average
+EDGE_LEVEL = 40           # an edge-filter value (0-255) above this is a strong edge (an object's outline, clutter)
+MAX_EDGE_SHARE = 0.01     # more than 1% strong edges behind text = busy (plain areas measure 0, a glass 2-3%)
 
 MIN_EMPTY_SHARE = 0.30  # at least 30% of the canvas is calm space (no text, no busy detail)
 

@@ -56,6 +56,19 @@ def readable_on(bg_hex: str, design: BrandDesign) -> str:
     return max(candidates, key=lambda c: contrast_ratio(c, bg_hex))
 
 
+def colors(spec: PageSpec) -> tuple[str, str]:
+    """(page background, text colour) the layout uses: the checks measure contrast against these."""
+    d = spec.design
+    bg, text = d.color("background").hex, d.color("text").hex
+    if spec.layout == "framed":  # the dark kit colour frames the photo; text flips to the light one
+        return text, readable_on(text, d)
+    if spec.layout == "type_led":
+        field_color = d.color(spec.field_role)
+        page_bg = field_color.hex if field_color else bg
+        return page_bg, readable_on(page_bg, d)
+    return bg, text  # photo: the design step picks a photo whose calm area suits the kit's text colour
+
+
 def build_html(spec: PageSpec, font_css: str) -> str:
     d, c, s = spec.design, spec.canvas, spec.canvas.safe
     bg = d.color("background").hex
@@ -63,11 +76,11 @@ def build_html(spec: PageSpec, font_css: str) -> str:
     heading, body = d.fonts.heading, d.fonts.body
     head_w, body_w = max(heading.weights or [700]), min(body.weights or [400])
 
-    page_bg, text_color, inner = bg, text, ""
+    page_bg, text_color = colors(spec)
+    inner = ""
     if spec.layout == "photo":
         if spec.photo is None:
             raise ValueError("the photo layout needs a photo")
-        text_color = text  # the design step picks a photo whose calm area suits the kit's text colour
         scrim_side = "to bottom" if spec.text_area == "top" else "to top"
         scrim = (f'<div class="scrim" style="background: linear-gradient({scrim_side}, {bg}e6 0%, {bg}00 100%)"></div>'
                  if spec.scrim else "")
@@ -80,13 +93,9 @@ def build_html(spec: PageSpec, font_css: str) -> str:
     elif spec.layout == "framed":
         if spec.photo is None:
             raise ValueError("the framed layout needs a photo")
-        page_bg = text  # the dark kit colour frames the photo; text flips to the light one
-        text_color = readable_on(page_bg, d)
         inner = f'<img class="photo framed" src="{spec.photo.uri()}" style="object-position: {escape(spec.photo_focus)}" alt="">'
     elif spec.layout == "type_led":
-        field_color = d.color(spec.field_role)
-        page_bg = field_color.hex if field_color else bg
-        text_color = readable_on(page_bg, d)
+        pass
     else:
         raise ValueError(f"unknown layout {spec.layout}")
 
