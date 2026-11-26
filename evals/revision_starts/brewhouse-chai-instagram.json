@@ -1,0 +1,46 @@
+{
+  "plan": {
+    "brief_concerns": [],
+    "rationale": "The brief asks for sales of the new Masala Chai Cold Brew. The brand rules forbid health claims, so finding 5 about health benefits is excluded. The angle connects the cool, dry November weather (finding 1) with the new seasonal drink, celebrating Indian origins by referencing the spices in the Masala Chai Cold Brew without making medical claims. Finding 7 about cold brew methods for tea supports the product innovation. The key message states a neutral fact about the weather and the new menu item.",
+    "rules_check": "Brand forbids health claims (finding 5), competitor mentions, discount-shouting/ALL CAPS, and promising results/medical-sounding effects. Plan avoids health claims entirely. Key message states the neutral fact that it's a new seasonal drink on the menu, not what it will do for the body. No competitors mentioned. Tone is casual and warm.",
+    "angle": "Leverage the pleasant, cool November weather in Bengaluru to introduce the new Masala Chai Cold Brew as the perfect seasonal switch, highlighting the artisanal cold-brew method and the Indian spices.",
+    "key_message": "With Bengaluru's cool November weather, our new Masala Chai Cold Brew—black tea, cardamom, cinnamon, and ginger, cold-brewed with no artificial syrups—is a refreshing twist on a classic.",
+    "finding_ids": [
+      1,
+      7
+    ],
+    "cta_direction": "Visit the Indiranagar cafe to try it or DM us to place an order."
+  },
+  "draft": {
+    "platform": "instagram",
+    "hook": "Nov in Bengaluru finally feels like a vibe 🍂",
+    "body": "The weather is actually pleasant rn — around 65°F to 83°F — and we’re here for it.\n\nThat’s why we’re launching our new Masala Chai Cold Brew. Black tea, cardamom, cinnamon, and ginger, all cold-brewed and served over ice.\n\nNo added artificial syrups, just the chill vibes and that classic masala kick. Cold brew methods are gaining popularity for teas, aur yeh perfect way hai is flavour ko enjoy karne ka.",
+    "call_to_action": "Drop by our Indiranagar cafe to try it, or DM us to place an order ☕",
+    "hashtags": [
+      "#BrewHouseBengaluru",
+      "#Indiranagar",
+      "#MasalaChaiColdBrew",
+      "#BengaluruCoffee",
+      "#ColdBrew"
+    ],
+    "image_idea": "A close-up shot of the Masala Chai Cold Brew in a glass with ice, garnished with a cinnamon stick and cardamom pod, set against the cosy interior of the Indiranagar cafe.",
+    "rationale": "The hook uses a relatable Bengaluru weather observation to stop the scroll. The body addresses the editor's issue by clarifying the drink is newly launched, lists the exact approved ingredients, and safely mentions the general trend of cold-brewed teas without making health claims. The CTA is direct and low-effort."
+  },
+  "review": {
+    "issues": [
+      {
+        "type": "language",
+        "quote": "Nov in Bengaluru finally feels like a vibe",
+        "problem": "The draft is almost entirely in English, while the brand's language is Hinglish.",
+        "fix": "Rewrite the hook and body in Hinglish, e.g. 'November in Bengaluru ka mausam finally pleasant ho gaya hai 🍂' and keep the rest of the copy in the same Hinglish tone."
+      },
+      {
+        "type": "copied_example",
+        "quote": "just the chill vibes",
+        "problem": "The phrase echoes the example post's 'chill vibes' wording, which must not be copied.",
+        "fix": "Replace with original wording, e.g. 'thoda thanda, thoda spicy'."
+      }
+    ],
+    "verdict": "revise"
+  }
+}

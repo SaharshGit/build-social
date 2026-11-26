@@ -95,4 +95,10 @@
   (FK, ON DELETE SET NULL), migration 379e721dc043. Chat sets chat + conversation; New post form and Revise
   button set form. RunOut exposes both; Pipelines shows "New post from chat “title”" etc., detail links to the chat.
   Next: quality Q1-Q2, then schedules S1-S3.
+- Q1 done (branch sg/quality): revision evals. `buildsocial eval-revisions [--make-starts]`, cases in
+  evals/revision_cases.yaml, fixed starting posts in evals/revision_starts/. Measurable requests are checked by
+  code (buildsocial/feedback_rules.py); others by FeedbackCheckAgent (DeepSeek, must quote evidence).
+  Baseline 2026-11-26: 3/7 cases pass, 6/9 requests done, 1 broke (judge flagged "we built Coin"; maybe strict).
+  Misses: under-400 -> 455 chars; "friendlier" only slightly; "end with a question" -> question then a CTA.
+  Cost: starts + baseline INR 0.75. Next: Q2 (check feedback after revising, one retry, show ✓/✗ on the post).
 
