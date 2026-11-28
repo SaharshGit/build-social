@@ -70,7 +70,7 @@ function PipelineRow({ run, brand, source }: { run: Run; brand?: string; source:
 }
 
 function metaLine(run: Run, source: string): string {
-  const kind = run.kind === 'revision' ? 'Revision' : 'New post'
+  const kind = run.kind === 'revision' ? 'Revision' : run.kind === 'image' ? 'Image' : 'New post'
   const parts = [source ? `${kind} ${source}` : kind]
   if (run.status === 'queued') parts.push(`queued ${timeAgo(run.created_at)}, waiting for the worker`)
   else if (run.status === 'running') parts.push(`started ${timeAgo(run.started_at ?? run.created_at)}`)

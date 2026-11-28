@@ -415,3 +415,16 @@ blockquote.example { margin: 0 0 0.5rem; font-style: italic; }
 .photo-note { display: flex; gap: 0.8rem; align-items: flex-start; max-width: 560px; }
 .photo-note img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
 .photo-note p { margin: 0.15rem 0; }
+
+/* Designed post image */
+.post-image { margin: 0.6rem 0; }
+.post-image-pic { display: block; width: 100%; max-width: 480px; height: auto; border-radius: 14px; border: 1.5px solid var(--line); background: var(--panel); }
+.post-image.compact .post-image-pic { max-width: 280px; }
+.post-image-bar { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin-top: 0.5rem; max-width: 480px; }
+.post-image.compact .post-image-bar { max-width: 280px; }
+.image-status { font-size: 0.8rem; border-radius: 12px; padding: 0.1rem 0.65rem; border: 1.5px solid var(--soft-line); }
+.image-status.warn { border-color: var(--bad); color: var(--bad); }
+.post-image a.btn { text-decoration: none; display: inline-block; }
+.image-checks { margin-top: 0.6rem; max-width: 560px; }
+.image-checks summary { cursor: pointer; font-size: 0.9rem; }
+.image-checks ul { list-style: none; padding: 0; margin: 0.5rem 0; display: grid; gap: 0.25rem; }

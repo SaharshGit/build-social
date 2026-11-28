@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import type { Brief } from '../api/client'
-import { useBrands, useStartRun } from '../api/hooks'
+import { useBrand, useBrands, useStartRun } from '../api/hooks'
+import { Link } from 'react-router'
 import { ErrorBox, Loading } from '../components/common'
 
 const GOALS = ['engagement', 'awareness', 'sales', 'community'] as const
@@ -19,6 +20,8 @@ export default function NewPost() {
   const [format, setFormat] = useState<NonNullable<Brief['format']>>('text')
   const [goal, setGoal] = useState<NonNullable<Brief['goal']>>('engagement')
   const [notes, setNotes] = useState('')
+  const chosen = useBrand(brandId)
+  const needsKit = format === 'single_image' && !!chosen.data && !chosen.data.profile.design
 
   if (brands.isLoading) return <Loading what="Loading brands" />
   if (brands.error) return <ErrorBox error={brands.error} />
@@ -72,6 +75,12 @@ export default function NewPost() {
             </select>
           </label>
         </div>
+        {needsKit && (
+          <p className="warn small">
+            {chosen.data!.profile.name} has no look & feel yet, so its image can't be designed.{' '}
+            <Link to={`/brands/${brandId}?tab=look`}>Add its colours and fonts first</Link>. The caption will still be written.
+          </p>
+        )}
         <label>
           Notes (optional)
           <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anything the post must mention or avoid" />

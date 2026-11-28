@@ -16,6 +16,13 @@ const PIPELINE: StepDef[] = [
   { key: 'revision', label: 'Fix', long: 'Fix review issues', optional: true },
 ]
 
+// Image posts add these after the text is saved (imaging.py). Retries share a step: design_retry counts as design.
+const IMAGE: StepDef[] = [
+  { key: 'design', label: 'Design', long: 'Design the image' },
+  { key: 'render', label: 'Render', long: 'Render the image' },
+  { key: 'visual_check', label: 'Check', long: 'Check the image against the brand' },
+]
+
 const REVISION: StepDef[] = [
   { key: 'feedback_revision', label: 'Revise', long: 'Apply your feedback' },
   { key: 'feedback_review', label: 'Review', long: 'Review the revision' },
@@ -31,7 +38,12 @@ const matches = (agent: string, key: string) =>
 
 /** Every step of this run with its state, in order. */
 export function stepsFor(run: Run): StepView[] {
-  const defs = run.kind === 'revision' ? REVISION : PIPELINE
+  const imagePost = run.brief.format === 'single_image'
+  // A revision re-renders only when the image words changed, so its image steps are optional.
+  const defs =
+    run.kind === 'image' ? IMAGE
+    : run.kind === 'revision' ? [...REVISION, ...(imagePost ? IMAGE.map((d) => ({ ...d, optional: true })) : [])]
+    : [...PIPELINE, ...(imagePost ? IMAGE : [])]
   const recorded = run.steps as RecordedStep[]
   const current = run.current_step ?? ''
   const views: StepView[] = defs.map((d) => ({
@@ -71,7 +83,7 @@ export function triggerText(run: Run, chatTitles: Record<string, string>): strin
       return run.conversation_id ? `from chat “${title ?? '…'}”` : 'from a chat (deleted)'
     }
     case 'form':
-      return run.kind === 'revision' ? 'from the post page' : 'from the New post form'
+      return run.kind === 'pipeline' ? 'from the New post form' : 'from the post page'
     case 'schedule':
       return 'from a schedule'
     default:

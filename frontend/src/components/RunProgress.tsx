@@ -15,6 +15,10 @@ function stepLabel(agent: string): string {
     reviewer: 'Reviewing it',
   }
   if (fixed[agent]) return fixed[agent]
+  if (agent === 'design') return 'Designing the image'
+  if (agent === 'design_retry') return 'Trying another design'
+  if (agent === 'render') return 'Rendering the image'
+  if (agent === 'visual_check') return 'Checking the image'
   if (agent.startsWith('feedback_check')) return 'Checking your requests were done'
   if (agent.startsWith('feedback_revision')) return 'Applying your feedback'
   if (agent.startsWith('feedback_review')) return 'Reviewing the revision'

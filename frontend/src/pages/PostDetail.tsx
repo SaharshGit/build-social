@@ -3,7 +3,7 @@ import type { Post } from '../api/client'
 import { useBrandNames, usePost } from '../api/hooks'
 import { ErrorBox, Loading, StatusBadge } from '../components/common'
 import Highlighted from '../components/Highlighted'
-import ImageTextPreview from '../components/ImageTextPreview'
+import PostImage from '../components/PostImage'
 import FeedbackChecks, { latestChecks, type Note } from '../components/FeedbackChecks'
 import PostActions from '../components/PostActions'
 import { PLATFORM_LABELS, timeAgo } from '../lib/format'
@@ -54,7 +54,7 @@ export default function PostDetail() {
       <div className="detail-grid">
         <div>
           <h2>Post</h2>
-          <ImageTextPreview post={p} quotes={p.review.issues.map((i) => i.quote)} />
+          <PostImage post={p} quotes={p.review.issues.map((i) => i.quote)} />
           <div className="card">
             <Highlighted text={p.full_text} quotes={p.review.issues.map((i) => i.quote)} />
           </div>

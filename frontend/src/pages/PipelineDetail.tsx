@@ -47,7 +47,7 @@ export default function PipelineDetail() {
       </div>
       <p className="subtitle">
         {brand} · {PLATFORM_LABELS[String(r.brief.platform)] ?? String(r.brief.platform)} ·{' '}
-        {r.kind === 'revision' ? 'revision' : 'new post'} · started {timeAgo(r.started_at ?? r.created_at)}
+        {r.kind === 'revision' ? 'revision' : r.kind === 'image' ? 'new image layout' : 'new post'} · started {timeAgo(r.started_at ?? r.created_at)}
       </p>
 
       <div className="detail-two">

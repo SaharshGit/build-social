@@ -10,7 +10,7 @@ import { PLATFORM_LABELS } from '../lib/format'
 import { ErrorBox, Loading, StatusBadge } from './common'
 import FeedbackChecks, { latestChecks } from './FeedbackChecks'
 import Highlighted from './Highlighted'
-import ImageTextPreview from './ImageTextPreview'
+import PostImage from './PostImage'
 import PostActions from './PostActions'
 import StepChain from './StepChain'
 import { formatCost } from './RunProgress'
@@ -51,7 +51,7 @@ function RunCard({ runId }: { runId: string }) {
   if (run.error) return <ErrorBox error={run.error} />
   if (!run.data) return <p className="muted">Starting…</p>
   const r = run.data
-  const what = r.kind === 'revision' ? 'Revision' : 'Post'
+  const what = r.kind === 'revision' ? 'Revision' : r.kind === 'image' ? 'Image' : 'Post'
   const title = r.status === 'done' ? `${what} built` : r.status === 'failed' ? `${what} failed` : `Building ${what.toLowerCase()}`
   const platform = PLATFORM_LABELS[String(r.brief.platform)] ?? String(r.brief.platform ?? '')
 
@@ -91,7 +91,7 @@ function PostCard({ postId }: { postId: string }) {
         <span className="spacer" />
         <Link to={`/posts/${p.id}`} className="small">Open full post →</Link>
       </div>
-      <ImageTextPreview post={p} quotes={issues.map((i) => i.quote)} />
+      <PostImage post={p} quotes={issues.map((i) => i.quote)} compact />
       <Highlighted text={p.full_text} quotes={issues.map((i) => i.quote)} />
       {(() => {
         const last = latestChecks(p.feedback)

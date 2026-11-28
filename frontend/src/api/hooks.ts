@@ -107,6 +107,11 @@ export function useDecide(postId: string) {
   })
 }
 
+/** Design the post's image again with a different layout (also retries a failure). Returns the queued run. */
+export function useRedesignImage(postId: string) {
+  return useMutation({ mutationFn: () => api<Run>(`/posts/${postId}/image`, { method: 'POST' }) })
+}
+
 export function useRevise(postId: string) {
   return useMutation({
     mutationFn: (feedback: string) => api<Run>(`/posts/${postId}/revise`, { method: 'POST', body: { feedback } }),

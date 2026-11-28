@@ -19,6 +19,7 @@ export type BrandColor = components['schemas']['BrandColor']
 export type Asset = components['schemas']['AssetOut']
 export type AssetKind = Asset['kind']
 export type Style = components['schemas']['StyleOut']
+export type PostImage = components['schemas']['PostImageOut']
 
 /** An error the API returned, with its status code and FastAPI's "detail" message. */
 export class ApiError extends Error {
@@ -56,6 +57,9 @@ export async function upload<T>(path: string, file: File, fields: Record<string,
   }
   return data as T
 }
+
+/** A path the API serves (e.g. a post's image url) as a URL the browser can load. */
+export const apiUrl = (path: string) => BASE + path
 
 /** The URL an uploaded image is served from (AssetOut.url is relative to the API). */
 export const assetUrl = (assetId: string) => `${BASE}/assets/${assetId}/file`
