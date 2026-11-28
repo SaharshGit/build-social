@@ -93,6 +93,37 @@ class PostSummary(BaseModel):
                    revisions=len(p.history), created_at=p.created_at, decided_at=p.decided_at)
 
 
+class PostImageOut(BaseModel):
+    """A single-image post's designed image: where to get it, how it was made, what the checks found."""
+
+    url: str  # GET it here (the version is in the query so a new image isn't served from the browser cache)
+    version: int
+    layout: str | None = None
+    width: int | None = None
+    height: int | None = None
+    status: str | None = None  # "ok", or "needs_attention" (a check still fails: look at it)
+    headline_px: float | None = None
+    checks: list[dict[str, Any]] = []   # measured checks: name, passed, detail
+    visual: dict[str, Any] | None = None  # the model's judgement: checks + the words it read
+    words: dict[str, Any] | None = None
+    attempts: list[dict[str, Any]] = []
+    skipped_photos: list[dict[str, Any]] = []
+    error: str | None = None  # making it failed (an earlier image, if any, is still served)
+
+    @classmethod
+    def from_row(cls, p: Post) -> "PostImageOut | None":
+        img = p.image
+        if not img:
+            return None
+        has_file = bool(img.get("key"))
+        return cls(url=f"/posts/{p.id}/image?v={img.get('version', 0)}" if has_file else "",
+                   version=img.get("version", 0), layout=img.get("layout"), width=img.get("width"),
+                   height=img.get("height"), status=img.get("status"), headline_px=img.get("headline_px"),
+                   checks=img.get("checks", []), visual=img.get("visual"), words=img.get("words"),
+                   attempts=img.get("attempts", []), skipped_photos=img.get("skipped_photos", []),
+                   error=img.get("error"))
+
+
 class PostOut(BaseModel):
     """One post in full: what a reviewer needs to decide."""
 
@@ -112,6 +143,7 @@ class PostOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     decided_at: datetime | None
+    image: PostImageOut | None = None  # single_image posts: the designed image
 
     @classmethod
     def from_row(cls, p: Post) -> "PostOut":
@@ -120,7 +152,7 @@ class PostOut(BaseModel):
                    topic=p.topic, full_text=draft.full_text, draft=draft, review=Review.model_validate(p.review),
                    plan=ContentPlan.model_validate(p.plan), facts=p.facts, history=p.history,
                    feedback=p.feedback, created_at=p.created_at, updated_at=p.updated_at,
-                   decided_at=p.decided_at)
+                   decided_at=p.decided_at, image=PostImageOut.from_row(p))
 
 
 class DecisionIn(BaseModel):

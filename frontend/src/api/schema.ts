@@ -316,6 +316,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/posts/{post_id}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Image
+         * @description The post's designed image (a PNG). Posts without one (text posts, or image making failed) answer 404.
+         */
+        get: operations["get_image_posts__post_id__image_get"];
+        put?: never;
+        /**
+         * Redesign Image
+         * @description Design the image again with a different layout (also retries after a failure). Queues a run: poll
+         *     GET /runs/{id}; when it's done the post has the new image.
+         */
+        post: operations["redesign_image_posts__post_id__image_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/conversations": {
         parameters: {
             query?: never;
@@ -957,6 +982,57 @@ export interface components {
             image_text?: components["schemas"]["ImageText"] | null;
         };
         /**
+         * PostImageOut
+         * @description A single-image post's designed image: where to get it, how it was made, what the checks found.
+         */
+        PostImageOut: {
+            /** Url */
+            url: string;
+            /** Version */
+            version: number;
+            /** Layout */
+            layout?: string | null;
+            /** Width */
+            width?: number | null;
+            /** Height */
+            height?: number | null;
+            /** Status */
+            status?: string | null;
+            /** Headline Px */
+            headline_px?: number | null;
+            /**
+             * Checks
+             * @default []
+             */
+            checks: {
+                [key: string]: unknown;
+            }[];
+            /** Visual */
+            visual?: {
+                [key: string]: unknown;
+            } | null;
+            /** Words */
+            words?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Attempts
+             * @default []
+             */
+            attempts: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Skipped Photos
+             * @default []
+             */
+            skipped_photos: {
+                [key: string]: unknown;
+            }[];
+            /** Error */
+            error?: string | null;
+        };
+        /**
          * PostOut
          * @description One post in full: what a reviewer needs to decide.
          */
@@ -1011,6 +1087,7 @@ export interface components {
             updated_at: string;
             /** Decided At */
             decided_at: string | null;
+            image?: components["schemas"]["PostImageOut"] | null;
         };
         /**
          * PostStatus
@@ -1964,6 +2041,68 @@ export interface operations {
                 "application/json": components["schemas"]["ReviseIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_image_posts__post_id__image_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    redesign_image_posts__post_id__image_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             202: {

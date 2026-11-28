@@ -68,6 +68,9 @@ class DesignInput(BaseModel):
     platform: str = "instagram"
     photos: list[PhotoOption] = []
     style: dict | None = None  # the brand's style board reading (BrandStyle fields), if it has one
+    # A retry: the layout that just failed and what was wrong with it. The new design must differ.
+    avoid_layout: Layout | None = None
+    avoid_notes: list[str] = []
 
 
 class DesignerAgent(Agent[DesignInput, DesignChoice]):
@@ -108,6 +111,9 @@ class DesignerAgent(Agent[DesignInput, DesignChoice]):
                   f"Headline: {input.headline}"]
         if input.subline:
             lines.append(f"Subline: {input.subline}")
+        if input.avoid_layout:
+            lines += ["", f"# The previous design ('{input.avoid_layout}') did not work. Choose a different layout.",
+                      *[f"- {n}" for n in input.avoid_notes]]
         lines += ["", "# Photos available (use only these ids)"]
         if not input.photos:
             lines.append("(none: use type_led)")
@@ -126,6 +132,8 @@ class DesignerAgent(Agent[DesignInput, DesignChoice]):
         attached = [p for p in input.photos if p.attached]
         d = input.brand.design
 
+        if input.avoid_layout and output.layout == input.avoid_layout:
+            errors.append(f"layout: '{input.avoid_layout}' just failed; choose a different layout")
         if output.layout == "type_led":
             if attached:
                 errors.append("layout: the person attached a photo, so the post must use it; "

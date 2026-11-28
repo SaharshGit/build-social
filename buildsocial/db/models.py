@@ -39,6 +39,7 @@ class RunStatus(StrEnum):
 class RunKind(StrEnum):
     PIPELINE = "pipeline"  # research -> strategy -> content -> review
     REVISION = "revision"  # a person's feedback on an existing post
+    IMAGE = "image"        # design and render the post's image again (e.g. "try another layout")
 
 
 class RunTrigger(StrEnum):
@@ -174,6 +175,9 @@ class Post(Timestamps, Base):
     history: Mapped[list[Any]] = mapped_column(default=list)  # earlier drafts and their reviews
     feedback: Mapped[list[Any]] = mapped_column(default=list)  # what people asked to change
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # approved/rejected when
+    # The post's designed image (single_image posts): where the PNG is stored, how it was designed, what the
+    # checks found. {"error": ...} if making it failed. None for text posts. See imaging.py.
+    image: Mapped[dict[str, Any] | None]
 
 
 class MessageRole(StrEnum):

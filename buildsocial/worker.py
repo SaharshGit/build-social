@@ -24,9 +24,10 @@ from buildsocial.db.posts import apply_revision, create_post_from_result, result
 from buildsocial.db.session import session as db_session
 from buildsocial.harness.llm.base import LLMClient
 from buildsocial.harness.llm.registry import Pricing, get_client
-from buildsocial.harness.storage import Storage
+from buildsocial.harness.storage import Storage, get_storage
 from buildsocial.harness.trace import Tracer
-from buildsocial.pipeline import default_pricing, revise_with_feedback, run_pipeline
+from buildsocial.imaging import ImageDeps, needs_new_image, produce_post_image
+from buildsocial.pipeline import StepRunner, default_pricing, revise_with_feedback, run_pipeline
 from buildsocial.schemas import BrandProfile, PostBrief
 
 SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
@@ -40,6 +41,7 @@ class WorkerDeps:
     client_for: Callable[[str], LLMClient] = get_client
     pricing_for: Callable[[str], Pricing] = default_pricing
     cache: Storage | None = None  # research cache (the CLI passes the configured storage)
+    images: ImageDeps | None = None  # where post images are stored and how they're rendered (default: configured storage)
     tracer_for: Callable[[uuid.UUID], Tracer] = field(default=lambda run_id: Tracer())
     # flush=True: log lines appear immediately even when output goes to a file or a container log.
     log: Callable[[str], None] = field(default=lambda message: print(message, flush=True))
@@ -68,17 +70,36 @@ async def process_one(deps: WorkerDeps) -> uuid.UUID | None:
                 await run_ops.record_progress(db, run_id, label, summary)
 
         common = dict(tracer=tracer, client_for=deps.client_for, pricing_for=deps.pricing_for, on_progress=progress)
+        post_brief = PostBrief.model_validate(brief)
+        runner = StepRunner(tracer, deps.client_for, deps.pricing_for, progress)
+
+        async def make_image(post_id: uuid.UUID, **options) -> None:
+            if post_brief.format == "single_image":  # image posts: design and render after the text is saved
+                await produce_post_image(deps.session, deps.images or ImageDeps(store=get_storage()), runner,
+                                         post_id, post_brief, **options)
+
         if kind == RunKind.PIPELINE:
-            result = await run_pipeline(profile, PostBrief.model_validate(brief), cache=deps.cache, **common)
-            async with deps.session() as db:
+            result = await run_pipeline(profile, post_brief, cache=deps.cache, **common)
+            async with deps.session() as db:  # the text is saved first: it's reviewable even if the image fails
                 post = await create_post_from_result(db, await db.get(Run, run_id), result)
+            await make_image(post.id)
+            async with deps.session() as db:
                 await run_ops.finish_run(db, run_id, trace_key)
         elif kind == RunKind.REVISION:
             async with deps.session() as db:
                 saved = result_from_post(await db.get(Post, post_id))
-            revised = await revise_with_feedback(saved, profile, PostBrief.model_validate(brief), feedback, **common)
+            revised = await revise_with_feedback(saved, profile, post_brief, feedback, **common)
             async with deps.session() as db:  # the SAME post gets the new draft; the old one goes to history
                 post = await apply_revision(db, await db.get(Post, post_id), revised, feedback)
+                new_image = needs_new_image(post, revised.draft)  # new words -> a new image; same words keep it
+            if new_image:
+                await make_image(post_id)
+            async with deps.session() as db:
+                await run_ops.finish_run(db, run_id, trace_key)
+        elif kind == RunKind.IMAGE:  # "try another layout"
+            await make_image(post_id, other_layout=True)
+            async with deps.session() as db:
+                post = await db.get(Post, post_id)
                 await run_ops.finish_run(db, run_id, trace_key)
         else:
             raise NotImplementedError(f"'{kind}' runs aren't supported")
